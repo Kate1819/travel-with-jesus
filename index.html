@@ -1,0 +1,1489 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="description" content="A kids' adventure game (ages 6 to 12): walk with Jesus through five Gospel stories, make choices, and hear every character speak.">
+<title>The Road with Jesus</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fredoka:wght@500;600;700&family=Nunito:wght@600;700;800&display=swap">
+<style>
+/* Layout: one game frame (canvas + HUD + dialog overlays), touch pad under it, short notes for grown-ups. Deliberately one warm evening look. */
+:root{
+  --night:#13222e; --night2:#1b3242; --panel:#fff8ea; --ink:#2b2118; --ink2:#7a6650;
+  --gold:#f2b632; --gold-d:#b07b0d; --lake:#2f7fae; --red:#b3412f; --line:#e3cf9f;
+  --display:"Fredoka","Baloo 2","Trebuchet MS",system-ui,sans-serif;
+  --body:"Nunito","Segoe UI",system-ui,sans-serif;
+  color-scheme:dark;
+}
+*{box-sizing:border-box}
+[hidden]{display:none!important}
+body{background:var(--night);color:#eaf2f6;font-family:var(--body);font-size:16px;line-height:1.5;
+  padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:14px 48px}
+.wrap{max-width:1000px;margin:0 auto;display:flex;flex-direction:column;gap:14px}
+.top{display:flex;justify-content:space-between;align-items:flex-end;gap:8px 20px;flex-wrap:wrap}
+.top h1{font-family:var(--display);font-weight:700;font-size:clamp(1.7rem,4.4vw,2.6rem);margin:0;line-height:1.1;color:#ffe3a3;text-wrap:balance}
+.eyebrow{margin:0;font-weight:800;font-size:.75rem;letter-spacing:.12em;text-transform:uppercase;color:#9fb8c7}
+.how{margin:0;color:#b9ccd8;font-weight:700;font-size:.95rem}
+kbd{font-family:var(--body);font-weight:800;background:#2a4558;border:1px solid #3d5f75;border-bottom-width:3px;border-radius:6px;padding:0 6px;color:#fff;font-size:.85em}
+
+#frame{position:relative;border-radius:18px;overflow:hidden;background:#0b141b;box-shadow:0 12px 40px rgba(0,0,0,.45);border:3px solid #d9b26a}
+#cv{display:block;width:100%;max-width:100%;aspect-ratio:16/10;touch-action:none;cursor:pointer}
+#hud{position:absolute;top:0;left:0;right:0;padding:10px;display:flex;justify-content:space-between;align-items:flex-start;gap:8px;pointer-events:none}
+.goal:has(#goal:empty){visibility:hidden}
+.goal{background:rgba(255,248,234,.94);color:var(--ink);border-radius:12px;padding:6px 12px;font-weight:800;max-width:62%;font-size:clamp(.78rem,1.7vw,1rem);box-shadow:0 2px 0 rgba(0,0,0,.2);min-width:0}
+.goal small{display:block;font-weight:800;color:var(--gold-d);font-size:.7em;letter-spacing:.1em;text-transform:uppercase}
+.stats{display:flex;gap:6px;pointer-events:auto;flex-wrap:wrap;justify-content:flex-end}
+.pill{background:rgba(255,248,234,.94);color:var(--ink);border:0;border-radius:999px;padding:5px 11px;font:inherit;font-weight:800;font-size:clamp(.75rem,1.6vw,.95rem);display:flex;gap:5px;align-items:center;cursor:pointer;box-shadow:0 2px 0 rgba(0,0,0,.2)}
+.pill svg{width:16px;height:16px}
+#toast{position:absolute;left:50%;top:22%;transform:translateX(-50%);background:var(--gold);color:#2a1d00;font-family:var(--display);font-weight:600;font-size:clamp(.95rem,2.2vw,1.25rem);padding:8px 18px;border-radius:999px;box-shadow:0 4px 0 var(--gold-d);pointer-events:none;text-align:center;max-width:90%;animation:pop .35s ease-out}
+@keyframes pop{from{transform:translateX(-50%) scale(.6);opacity:0}}
+
+#dialog{position:absolute;left:12px;right:12px;bottom:12px;background:var(--panel);color:var(--ink);border-radius:16px;border:3px solid var(--line);padding:12px 14px;display:flex;gap:14px;box-shadow:0 6px 24px rgba(0,0,0,.35);cursor:pointer;max-height:calc(100% - 70px);overflow:auto}
+#portrait{width:96px;height:96px;border-radius:12px;flex:none;border:2px solid var(--line)}
+.dbody{min-width:0;flex:1;display:flex;flex-direction:column;gap:6px}
+.dname{font-family:var(--display);font-weight:600;font-size:1.05rem;color:var(--gold-d)}
+.dname.jesus{color:var(--red)}
+#dtext{margin:0;font-size:clamp(1rem,2.1vw,1.22rem);font-weight:800;line-height:1.4}
+#dref{margin:0;font-size:.88rem;color:var(--ink2);font-weight:700;font-style:italic}
+#dchoices{display:flex;flex-direction:column;gap:6px}
+.choice{text-align:left;font:inherit;font-weight:800;font-size:clamp(.92rem,1.9vw,1.05rem);padding:8px 12px;border-radius:10px;border:2px solid var(--line);background:#fff;color:var(--ink);cursor:pointer;display:flex;gap:10px;align-items:center}
+.choice .num{flex:none;width:24px;height:24px;border-radius:50%;background:#f3e3bd;display:grid;place-items:center;font-size:.8rem}
+.choice.sel,.choice:hover{border-color:var(--gold);background:#fff1cc}
+.choice.sel .num{background:var(--gold)}
+#dnext{align-self:flex-end;font-size:.8rem;color:var(--ink2);font-weight:800;margin:0;animation:blink 1s steps(2) infinite}
+@keyframes blink{50%{opacity:.35}}
+
+.overlay{position:absolute;inset:0;overflow:auto;display:flex;align-items:center;justify-content:center;padding:14px;background:rgba(10,22,32,.55)}
+.card{background:var(--panel);color:var(--ink);border-radius:18px;border:3px solid var(--line);padding:18px 20px;width:100%;max-width:640px;display:flex;flex-direction:column;gap:12px;box-shadow:0 10px 30px rgba(0,0,0,.4);margin:auto}
+.card h2{font-family:var(--display);font-weight:700;font-size:clamp(1.4rem,3.4vw,2rem);margin:0;line-height:1.1;color:#7a3e12;text-wrap:balance}
+.card p{margin:0}
+.maker{display:grid;grid-template-columns:170px 1fr;gap:18px;align-items:start}
+#menu .card{max-width:780px}
+.side{position:sticky;top:0;display:flex;flex-direction:column;gap:12px;align-items:stretch}
+.sidego{display:flex;flex-direction:column;gap:10px}
+.sidego .go{font-size:1.1rem;padding:10px 12px;line-height:1.15}
+#chsel .lab{width:100%}
+#chsel .chip{min-width:30px;padding:5px 8px}
+.maker > div{min-width:0}
+#preview{width:170px;height:193px;border-radius:14px;background:linear-gradient(#cfe7f2,#e9dcb0);border:2px solid var(--line)}
+.opts{display:grid;grid-template-columns:1fr 1fr;gap:2px 14px}.opt.wide{grid-column:1/-1}
+.opt{display:flex;flex-direction:column;gap:5px;margin-bottom:6px;min-width:0}
+.lab{font-weight:800;font-size:.78rem;letter-spacing:.08em;text-transform:uppercase;color:var(--ink2)}
+.chip{font:inherit;font-weight:800;font-size:.85rem;padding:5px 11px;border-radius:9px;border:2px solid var(--line);background:#fff;color:var(--ink);cursor:pointer}
+.chip[aria-pressed="true"]{background:var(--lake);border-color:var(--lake);color:#fff}
+.sw.none{background:repeating-linear-gradient(45deg,#fff 0 5px,#e8dcc0 5px 10px)!important}
+.opt label,.opt .lab{font-weight:800;font-size:.78rem;letter-spacing:.08em;text-transform:uppercase;color:var(--ink2)}
+.row{display:flex;gap:8px;flex-wrap:wrap}
+.seg{font:inherit;font-weight:800;padding:7px 16px;border-radius:10px;border:2px solid var(--line);background:#fff;color:var(--ink);cursor:pointer}
+.seg[aria-pressed="true"]{background:var(--lake);border-color:var(--lake);color:#fff}
+.sw{width:28px;height:28px;border-radius:50%;border:3px solid #fff;box-shadow:0 0 0 2px var(--line);cursor:pointer;padding:0}
+.sw[aria-pressed="true"]{box-shadow:0 0 0 3px var(--gold)}
+#pname{font:inherit;font-weight:800;padding:8px 12px;border-radius:10px;border:2px solid var(--line);background:#fff;color:var(--ink);width:100%;max-width:240px}
+.go{font-family:var(--display);font-weight:600;font-size:1.2rem;padding:10px 24px;border-radius:14px;border:0;background:var(--gold);color:#2a1d00;box-shadow:0 4px 0 var(--gold-d);cursor:pointer}
+.go:active{transform:translateY(2px);box-shadow:0 2px 0 var(--gold-d)}
+.link{font:inherit;font-weight:800;background:none;border:0;color:var(--lake);text-decoration:underline;cursor:pointer;padding:4px}
+.verses{margin:0;padding:0;list-style:none;display:flex;flex-direction:column;gap:8px;max-height:46vh;overflow:auto}
+.verses li{background:#fff;border:2px solid var(--line);border-radius:12px;padding:8px 12px;font-weight:700}
+.verses li span{display:block;font-size:.82rem;color:var(--ink2);font-style:italic}
+.bigstars{display:flex;gap:4px;flex-wrap:wrap}
+.bigstars svg{width:30px;height:30px}
+@media (max-width:600px){
+  .maker{grid-template-columns:1fr;gap:10px}
+  .side{position:static;flex-direction:row;align-items:center}
+  .sidego{flex:1;min-width:0}
+  .opts{grid-template-columns:1fr}
+  #preview{width:92px;height:104px;flex:none}
+  .card{padding:12px 14px;gap:8px}
+  .card > p{font-size:.92rem}
+  .sw{width:28px;height:28px}
+  .how{display:none}
+  #dialog{position:static;border-radius:0;border-width:3px 0 0;max-height:none}
+  #portrait{width:60px;height:60px}
+  .goal{max-width:58%}
+}
+
+#pad{display:none;justify-content:space-between;align-items:center;gap:16px;padding:4px 6px;user-select:none;-webkit-user-select:none}
+.dpad{display:grid;grid-template-columns:repeat(3,58px);grid-template-rows:repeat(3,58px);gap:4px}
+.dpad button,.abtn{font:inherit;border:0;border-radius:14px;background:var(--night2);color:#fff;box-shadow:0 4px 0 #0a141b;touch-action:none;display:grid;place-items:center;cursor:pointer}
+.dpad button:active,.abtn:active{transform:translateY(2px);box-shadow:0 2px 0 #0a141b}
+.dpad svg{width:26px;height:26px}
+.abtn{width:92px;height:92px;border-radius:50%;background:var(--gold);color:#2a1d00;font-family:var(--display);font-weight:700;font-size:1.2rem;box-shadow:0 5px 0 var(--gold-d);line-height:1.1;text-align:center}
+@media (pointer:coarse),(max-width:760px){#pad{display:flex}}
+
+.notes{display:grid;grid-template-columns:repeat(2,1fr);gap:12px;margin-top:8px}
+@media (max-width:760px){.notes{grid-template-columns:1fr}}
+.notes > div{background:var(--night2);border:1px solid #2d4a5e;border-radius:14px;padding:14px 16px;min-width:0}
+.notes h2{font-family:var(--display);font-weight:600;font-size:1.1rem;margin:0 0 6px;color:#ffe3a3}
+.notes p,.notes li{color:#c3d4de;font-size:.93rem;margin:0}
+.notes ul{margin:0;padding-left:18px;display:flex;flex-direction:column;gap:4px}
+:focus-visible{outline:3px solid var(--gold);outline-offset:2px}
+</style>
+</head>
+<body>
+
+
+<div class="wrap">
+  <header class="top">
+    <div><p class="eyebrow">A journey through the Gospels · ages 6 to 12</p><h1>The Road with Jesus</h1></div>
+    <p class="how">Walk with <kbd>←</kbd><kbd>↑</kbd><kbd>↓</kbd><kbd>→</kbd> · talk with <kbd>Space</kbd> · or tap where to go</p>
+  </header>
+
+  <div id="frame">
+    <canvas id="cv" aria-label="Game world"></canvas>
+    <div id="hud" hidden>
+      <div class="goal" aria-live="polite"><small>Your goal</small><span id="goal">Talk to your mother</span></div>
+      <div class="stats">
+        <span class="pill" title="Kindness stars"><svg viewBox="0 0 24 24"><path d="M12 2l3 6.5 7 .8-5.2 4.8 1.4 7L12 17.6 5.8 21l1.4-7L2 9.3l7-.8z" fill="#f2b632" stroke="#b07b0d" stroke-width="1.5"/></svg><span id="stars">0</span></span>
+        <button class="pill" id="jbtn" type="button" title="Verses you heard (J)"><svg viewBox="0 0 24 24"><path d="M4 4h7a3 3 0 0 1 3 3v13a2 2 0 0 0-2-2H4z M20 4h-4a2 2 0 0 0-2 2" fill="#fff3d1" stroke="#7a3e12" stroke-width="1.6"/></svg><span id="vcount">0</span></button>
+        <button class="pill" id="mus" type="button" aria-label="Music on or off">Music on</button><button class="pill" id="voc" type="button" aria-label="Voices on or off">Voices on</button>
+      </div>
+    </div>
+    <div id="toast" hidden></div>
+    <div id="dialog" hidden>
+      <canvas id="portrait" width="192" height="192"></canvas>
+      <div class="dbody">
+        <div id="dname" class="dname"></div>
+        <p id="dtext"></p>
+        <p id="dref" hidden></p>
+        <div id="dchoices"></div>
+        <p id="dnext" hidden>Space or tap ▸</p>
+      </div>
+    </div>
+
+    <div id="menu" class="overlay">
+      <div class="card">
+        <h2>The Road with Jesus</h2>
+        <p>Walk with Jesus through five adventures from the Gospels. Who will you be on the journey?</p>
+        <div class="maker">
+          <div class="side">
+            <canvas id="preview" width="300" height="340"></canvas>
+            <div class="sidego">
+              <button class="go" id="start" type="button">Start the journey</button>
+              <div class="row" style="align-items:center;gap:6px" id="chsel"><span class="lab">Or start at chapter</span></div>
+            </div>
+          </div>
+          <div class="opts">
+            <div class="opt"><span class="lab">I am a</span><div class="row" id="gender"><button class="seg" type="button" data-g="boy" aria-pressed="true">Boy</button><button class="seg" type="button" data-g="girl" aria-pressed="false">Girl</button></div></div>
+            <div class="opt"><label for="pname">My name</label><input id="pname" maxlength="12" placeholder="Sam" autocomplete="off"></div>
+            <div class="opt"><span class="lab">Skin</span><div class="row" id="skins"></div></div>
+            <div class="opt"><span class="lab">Hair colour</span><div class="row" id="hairs"></div></div>
+            <div class="opt wide"><span class="lab">Hair style</span><div class="row" id="hstyles"></div></div>
+            <div class="opt wide"><span class="lab">Tunic colour</span><div class="row" id="robes"></div></div>
+            <div class="opt wide"><span class="lab">Tunic pattern</span><div class="row" id="pats"></div></div>
+            <div class="opt wide"><span class="lab">Sash, stripes and headband colour</span><div class="row" id="accs"></div></div>
+            <div class="opt wide"><span class="lab">Cloak</span><div class="row" id="cloaks"></div></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div id="journal" class="overlay" hidden>
+      <div class="card">
+        <h2>Jesus' words you heard</h2>
+        <ul class="verses" id="vlist"></ul>
+        <div><button class="go" id="jclose" type="button">Back to the game</button></div>
+      </div>
+    </div>
+
+    <div id="end" class="overlay" hidden>
+      <div class="card">
+        <h2 id="endTitle">Chapter complete!</h2>
+        <p id="endText"></p>
+        <div class="bigstars" id="endStars"></div>
+        <ul class="verses" id="endVerses"></ul>
+        <p id="nextInfo"></p>
+        <div class="row" style="align-items:center;gap:12px"><button class="go" id="again" type="button">Continue</button><button class="link" id="toMenu" type="button">Main menu</button></div>
+      </div>
+    </div>
+  </div>
+
+  <div id="pad">
+    <div class="dpad">
+      <span></span><button type="button" data-dir="up" aria-label="Walk up"><svg viewBox="0 0 24 24"><path d="M12 5l7 9H5z" fill="#fff"/></svg></button><span></span>
+      <button type="button" data-dir="left" aria-label="Walk left"><svg viewBox="0 0 24 24"><path d="M5 12l9-7v14z" fill="#fff"/></svg></button><span></span><button type="button" data-dir="right" aria-label="Walk right"><svg viewBox="0 0 24 24"><path d="M19 12l-9 7V5z" fill="#fff"/></svg></button>
+      <span></span><button type="button" data-dir="down" aria-label="Walk down"><svg viewBox="0 0 24 24"><path d="M12 19l-7-9h14z" fill="#fff"/></svg></button><span></span>
+    </div>
+    <button class="abtn" id="abtn" type="button">Talk<br>A</button>
+  </div>
+
+  <section class="notes" aria-label="For parents and teachers">
+    <div><h2>Chapter 1: Come, follow me</h2><p>In Capernaum the player meets Jesus, asks Him questions, helps an old man carry water, watches Peter and Andrew leave their nets, and follows Jesus' footprints along the shore. Matthew 4:18–20, Mark 1:15, Matthew 25:40, Matthew 6:26.</p></div>
+    <div><h2>Chapter 2: Five loaves, two fish</h2><p>On the hillside the player trusts Jesus with a big problem, kindly asks a boy to share his lunch, serves bread to the crowd, remembers the family left out, and gathers twelve baskets. John 6:1–14, John 6:35.</p></div>
+    <div><h2>Chapter 3: The storm on the lake</h2><p>Out on the boat at night a storm hits. The player bails water with the disciples, learns they can't beat the storm alone, wakes Jesus, and sees Him calm the wind and waves. Mark 4:35–41, John 14:27.</p></div>
+    <div><h2>Chapter 4: Zacchaeus comes down</h2><p>In Jericho the player is kind to the man everyone dislikes, watches Jesus call him down from the tree, and helps Zacchaeus give back what he took. Luke 19:1–10, Luke 15:7.</p></div>
+    <div><h2>Chapter 5: He is risen!</h2><p>Early on Sunday the player walks with the women to the tomb, finds it empty, meets the risen Jesus, and runs to tell Peter and John. Matthew 28:1–10, 19–20, John 20:3–8.</p></div>
+    <div><h2>How choices work</h2><ul><li>No game over. A wrong choice brings gentle guidance from Jesus, then the child tries again.</li><li>Good choices earn kindness stars.</li><li>Jesus' words go into a verse journal. Quotes follow the NIV, shortened in a few places.</li><li>Every character speaks with a recorded natural voice, and each scene has its own music. Both can be switched off in the top corner.</li></ul></div>
+  </section>
+</div>
+
+<script>
+(()=>{
+'use strict';
+const $=s=>document.querySelector(s);
+const cv=$('#cv'),ctx=cv.getContext('2d'),frameEl=$('#frame');
+let VW=960,VH=600,SC=1;
+function resize(){const w=frameEl.clientWidth||960;if(w<600){VW=560;VH=640;}else{VW=960;VH=600;}cv.style.aspectRatio=VW+' / '+VH;const dpr=Math.min(window.devicePixelRatio||1,2);cv.width=Math.round(w*dpr);cv.height=Math.round(w*VH/VW*dpr);SC=cv.width/VW;}
+addEventListener('resize',resize);resize();
+const isTouch=matchMedia('(pointer:coarse)').matches;
+
+/* ---------------- utilities ---------------- */
+function rng(seed){return function(){seed|=0;seed=seed+0x6D2B79F5|0;let t=Math.imul(seed^seed>>>15,1|seed);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296;};}
+function shade(hex,a){const n=parseInt(hex.slice(1),16);const f=v=>Math.max(0,Math.min(255,v+a));return '#'+((1<<24)+(f(n>>16)<<16)+(f(n>>8&255)<<8)+f(n&255)).toString(16).slice(1);}
+function rr(c,x,y,w,h,r){c.beginPath();c.moveTo(x+r,y);c.arcTo(x+w,y,x+w,y+h,r);c.arcTo(x+w,y+h,x,y+h,r);c.arcTo(x,y+h,x,y,r);c.arcTo(x,y,x+w,y,r);c.closePath();}
+function mk(w,h,fn){const c=document.createElement('canvas');c.width=w;c.height=h;fn(c.getContext('2d'),w,h);return c;}
+function circ(c,x,y,r,col){c.fillStyle=col;c.beginPath();c.arc(x,y,r,0,Math.PI*2);c.fill();}
+function ell(c,x,y,rx,ry,col){c.fillStyle=col;c.beginPath();c.ellipse(x,y,rx,ry,0,0,Math.PI*2);c.fill();}
+const dist=(a,b)=>Math.hypot(a.x-b.x,a.y-b.y);
+const wait=ms=>new Promise(r=>setTimeout(r,ms));
+const esc=s=>s.replace(/[&<>"]/g,ch=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[ch]));
+
+/* ---------------- sound ---------------- */
+let AC=null,muted=false;
+function tone(f,d,type,v){if(muted)return;try{AC=AC||new (window.AudioContext||window.webkitAudioContext)();const o=AC.createOscillator(),g=AC.createGain();o.type=type||'sine';o.frequency.value=f;g.gain.setValueAtTime(v||.06,AC.currentTime);g.gain.exponentialRampToValueAtTime(.0001,AC.currentTime+d);o.connect(g);g.connect(AC.destination);o.start();o.stop(AC.currentTime+d+.02);}catch(e){}}
+const sfx={blip:()=>tone(620,.06,'triangle',.035),chime:()=>{tone(784,.3,'sine',.07);setTimeout(()=>tone(1047,.4,'sine',.07),110);setTimeout(()=>tone(1319,.5,'sine',.06),220);},pop:()=>tone(880,.1,'triangle',.06),soft:()=>tone(330,.18,'sine',.05)};
+/* ---------------- music: a small score per scene ---------------- */
+function noiseBuf(ac){const b=ac.createBuffer(1,ac.sampleRate,ac.sampleRate),d=b.getChannelData(0);for(let i=0;i<d.length;i++)d[i]=Math.random()*2-1;return b;}
+function impulse(ac,sec){const n=Math.floor(ac.sampleRate*sec),b=ac.createBuffer(2,n,ac.sampleRate);for(let c=0;c<2;c++){const d=b.getChannelData(c);for(let i=0;i<n;i++)d[i]=(Math.random()*2-1)*Math.pow(1-i/n,3);}return b;}
+const hz=m=>440*Math.pow(2,(m-69)/12);
+const MAJ=[0,2,4,5,7,9,11],DOR=[0,2,3,5,7,9,10];
+const THEMES={
+  title:{bpm:70,root:62,mode:MAJ,chords:[0,4,5,3],pad:.022,arp:[0,1,2,3,2,1,null,null],arpV:.07,bass:.1,lead:.075,
+    mel:[[2,'-',4,'-',7,'-','-',null],[6,'-',4,'-',5,'-','-',null],[5,'-',4,'-',2,'-',4,'-'],[3,'-','-','-',2,'-','-',null]]},
+  village:{bpm:92,root:62,mode:DOR,chords:[0,6,0,3],pad:.012,arp:[0,2,1,2,0,2,1,2],arpV:.09,bass:.12,lead:.07,drum:'D..TD.T.D..TD.TT',
+    mel:[[0,'-',2,4,'-',2,4,5],[6,'-',4,'-',2,'-',null,null],[4,5,4,2,0,'-',2,'-'],[3,'-',5,'-',4,'-','-',null],[null,null,null,null,null,null,null,null],[null,null,null,null,7,'-',6,4],[5,'-',4,'-',2,3,2,0],[0,'-','-','-',null,null,null,null]]},
+  lake:{bpm:84,root:67,mode:MAJ,chords:[0,3,5,4],pad:.016,arp:[0,1,2,3,4,3,2,1],arpV:.07,bass:.11,lead:.07,drum:'D.......D...s...',
+    mel:[[4,'-','-','-',2,'-',4,'-'],[5,'-','-','-',3,'-','-','-'],[7,'-',6,'-',5,'-',4,'-'],[4,'-','-','-',null,null,null,null]]},
+  hill:{bpm:112,root:67,mode:MAJ,chords:[0,3,4,0],pad:.01,arp:[0,null,1,2,null,1,2,null],arpV:.08,bass:.12,bass2:true,lead:.075,drum:'D.sTD.sTD.sTDTsT',
+    mel:[[0,2,4,'-',4,5,4,2],[3,'-',5,'-',3,2,0,'-'],[4,'-',4,5,6,'-',4,'-'],[7,'-','-',4,0,'-','-',null]]},
+  miracle:{bpm:60,root:62,mode:MAJ,chords:[0,5,3,4],pad:.03,arp:[0,null,2,null,4,null,2,null],arpV:.05,bass:.08,bells:true},
+  storm:{bpm:128,root:57,mode:[0,2,3,5,7,8,10],chords:[0,5,6,0],pad:.03,arp:[0,1,2,1,0,1,2,3],arpV:.08,bass:.15,bass2:true,lead:.06,drum:'D.TDD.TTD.TDDTTT',
+    mel:[[4,'-',3,'-',2,'-',0,'-'],[2,'-',3,'-',4,'-','-','-'],[5,'-',4,'-',3,'-',2,'-'],[0,'-','-','-',null,null,null,null]]},
+  jericho:{bpm:100,root:62,mode:[0,1,4,5,7,8,10],chords:[0,3,6,0],pad:.012,arp:[0,2,1,2,0,2,1,2],arpV:.085,bass:.12,lead:.07,drum:'D..TD.T.D.TTD.T.',
+    mel:[[0,1,2,'-',1,0,1,2],[3,'-',2,1,2,'-',null,null],[4,'-',5,4,3,2,1,'-'],[2,1,0,'-','-','-',null,null]]},
+  dawn:{bpm:58,root:62,mode:MAJ,chords:[5,3,0,4],pad:.025,arp:[0,null,1,null,2,null,1,null],arpV:.06,bass:.08,lead:.06,
+    mel:[[null,null,null,null,null,null,null,null],[4,'-','-','-',2,'-','-','-'],[3,'-','-','-',2,'-',1,'-'],[2,'-','-','-',null,null,null,null]]},
+  easter:{bpm:120,root:65,mode:MAJ,chords:[0,3,4,0,5,3,4,0],pad:.012,arp:[0,null,1,2,null,1,2,null],arpV:.08,bass:.12,bass2:true,lead:.075,bells:true,drum:'D.sTD.sTD.sTDsTT',
+    mel:[[4,'-',4,5,7,'-',4,'-'],[5,'-',3,'-',2,'-','-',null],[4,'-',5,'-',6,'-',4,'-'],[7,'-','-','-',null,null,null,null],[7,'-',6,'-',5,'-',4,'-'],[3,'-',2,'-',0,'-','-',null],[1,'-',2,'-',3,4,2,'-'],[0,'-','-','-',null,null,null,null]]},
+  end:{bpm:66,root:62,mode:MAJ,chords:[0,3,0,4,5,3,4,0],pad:.022,bass:.11,lead:.08,arp:[0,null,1,null,2,null,1,null],arpV:.05,
+    mel:[[2,'-',2,'-',4,'-',2,'-'],[3,'-',5,'-',4,'-','-','-'],[2,'-',4,'-',7,'-',6,'-'],[4,'-','-','-',null,null,null,null],[5,'-',4,'-',2,'-',4,'-'],[3,'-',2,'-',0,'-','-','-'],[1,'-',2,'-',3,'-',1,'-'],[0,'-','-','-',null,null,null,null]]}
+};
+const Music={ac:null,on:true,ducked:false,bus:null,theme:null,pending:null,step:0,nextT:0,
+  start(){if(this.ac)return;try{AC=AC||new (window.AudioContext||window.webkitAudioContext)();if(AC.state==='suspended')AC.resume();const ac=this.ac=AC;
+    this.out=ac.createGain();this.out.gain.value=0;const comp=ac.createDynamicsCompressor();this.out.connect(comp);comp.connect(ac.destination);
+    this.rev=ac.createConvolver();this.rev.buffer=impulse(ac,2.8);const rg=ac.createGain();rg.gain.value=.32;this.rev.connect(rg);rg.connect(this.out);
+    this.noise=noiseBuf(ac);this.level();setInterval(()=>this.tick(),40);if(this.pending){const p=this.pending;this.pending=null;this.play(p);}}catch(e){}},
+  level(){if(!this.ac)return;this.out.gain.setTargetAtTime(this.on?(this.ducked?.2:.5):0,this.ac.currentTime,.25);},
+  duck(v){this.ducked=v;this.level();},
+  play(name){if(!this.ac){this.pending=name;return;}if(this.theme&&this.theme.name===name)return;const ac=this.ac,now=ac.currentTime;
+    if(this.bus){const old=this.bus;old.gain.setTargetAtTime(0,now,.6);setTimeout(()=>{try{old.disconnect();}catch(e){}},4000);}
+    const bus=ac.createGain();bus.gain.setValueAtTime(0,now);bus.gain.setTargetAtTime(1,now+.4,.7);bus.connect(this.out);bus.connect(this.rev);
+    this.bus=bus;this.theme=Object.assign({name},THEMES[name]);this.step=0;this.nextT=now+.45;},
+  tick(){const th=this.theme;if(!th||!this.ac)return;const spb=60/th.bpm/2;if(this.nextT<this.ac.currentTime-1)this.nextT=this.ac.currentTime+.05;while(this.nextT<this.ac.currentTime+.25){this.playStep(this.step,this.nextT,spb);this.nextT+=spb;this.step++;}},
+  note(d){const th=this.theme;return th.root+12*Math.floor(d/7)+th.mode[((d%7)+7)%7];},
+  playStep(s,t,spb){const th=this.theme,b=this.bus,bar=Math.floor(s/8),pos=s%8,cd=th.chords[bar%th.chords.length],N=d=>hz(this.note(d));
+    if(pos===0){if(th.pad)this.pad(b,[N(cd-7),N(cd-5),N(cd-3)],t,spb*8,th.pad);if(th.bass)this.bass(b,N(cd-14),t,th.bass);}
+    if(pos===4&&th.bass2)this.bass(b,N(cd-10),t,th.bass*.8);
+    if(th.arp){const a=th.arp[pos];if(a!=null){const tones=[0,2,4,7,9,11];this.pluck(b,N(cd+tones[a]-7),t,th.arpV);}}
+    if(th.mel){const row=th.mel[bar%th.mel.length],m=row[pos];if(typeof m==='number'){let len=1;while(pos+len<8&&row[pos+len]==='-')len++;this.lead(b,N(m+7),t,spb*len,th.lead);}}
+    if(th.drum){const ch=th.drum[s%th.drum.length];if(ch==='D')this.drum(b,t,0);else if(ch==='T')this.drum(b,t,1);else if(ch==='s')this.drum(b,t,2);}
+    if(th.bells&&pos%2===0&&Math.random()<.4)this.bell(b,N(cd+[0,2,4,7][Math.floor(Math.random()*4)]+7),t);},
+  env(g,t,a,v,d){g.gain.setValueAtTime(.0001,t);g.gain.exponentialRampToValueAtTime(v,t+a);g.gain.exponentialRampToValueAtTime(.0001,t+a+d);},
+  pluck(b,f,t,v){const ac=this.ac,o=ac.createOscillator(),o2=ac.createOscillator(),g2=ac.createGain(),lp=ac.createBiquadFilter(),g=ac.createGain();o.type='triangle';o.frequency.value=f;o2.frequency.value=f*2;g2.gain.value=.3;lp.type='lowpass';lp.frequency.value=2600;o.connect(lp);o2.connect(g2);g2.connect(lp);lp.connect(g);g.connect(b);this.env(g,t,.004,v,1.3);o.start(t);o2.start(t);o.stop(t+1.5);o2.stop(t+1.5);},
+  lead(b,f,t,dur,v){const ac=this.ac,o=ac.createOscillator(),o2=ac.createOscillator(),g2=ac.createGain(),lfo=ac.createOscillator(),lg=ac.createGain(),g=ac.createGain();o.frequency.value=f;o2.type='triangle';o2.frequency.value=f;g2.gain.value=.25;lfo.frequency.value=5.2;lg.gain.value=f*.006;lfo.connect(lg);lg.connect(o.frequency);lg.connect(o2.frequency);o.connect(g);o2.connect(g2);g2.connect(g);g.connect(b);
+    g.gain.setValueAtTime(0,t);g.gain.linearRampToValueAtTime(v,t+.07);g.gain.setValueAtTime(v,t+dur*.8);g.gain.linearRampToValueAtTime(0,t+dur+.18);[o,o2,lfo].forEach(x=>{x.start(t);x.stop(t+dur+.25);});},
+  pad(b,fs,t,dur,v){const ac=this.ac,lp=ac.createBiquadFilter(),g=ac.createGain();lp.type='lowpass';lp.frequency.value=850;lp.connect(g);g.connect(b);g.gain.setValueAtTime(0,t);g.gain.linearRampToValueAtTime(v,t+.9);g.gain.setValueAtTime(v,t+dur-.1);g.gain.linearRampToValueAtTime(0,t+dur+.8);
+    fs.forEach(f=>[-6,6].forEach(c=>{const o=ac.createOscillator();o.type='sawtooth';o.frequency.value=f;o.detune.value=c;o.connect(lp);o.start(t);o.stop(t+dur+.9);}));},
+  bass(b,f,t,v){const ac=this.ac,o=ac.createOscillator(),g=ac.createGain();o.frequency.value=f;o.connect(g);g.connect(b);this.env(g,t,.01,v,1.1);o.start(t);o.stop(t+1.3);},
+  drum(b,t,k){const ac=this.ac,src=ac.createBufferSource(),f=ac.createBiquadFilter(),g=ac.createGain();src.buffer=this.noise;
+    if(k===0){f.type='lowpass';f.frequency.value=200;this.env(g,t,.003,.32,.22);const o=ac.createOscillator(),og=ac.createGain();o.frequency.setValueAtTime(110,t);o.frequency.exponentialRampToValueAtTime(55,t+.2);o.connect(og);og.connect(b);this.env(og,t,.003,.22,.25);o.start(t);o.stop(t+.3);}
+    else if(k===1){f.type='bandpass';f.frequency.value=1900;f.Q.value=1.2;this.env(g,t,.002,.1,.09);}
+    else{f.type='highpass';f.frequency.value=6500;this.env(g,t,.01,.05,.06);}
+    src.connect(f);f.connect(g);g.connect(b);src.start(t);src.stop(t+.3);},
+  bell(b,f,t){const ac=this.ac,g=ac.createGain();g.connect(b);this.env(g,t,.005,.05,2.6);[[1,1],[2.76,.35],[5.4,.12]].forEach(([m,a])=>{const o=ac.createOscillator(),og=ac.createGain();o.frequency.value=f*m;og.gain.value=a;o.connect(og);og.connect(g);o.start(t);o.stop(t+2.8);});}
+};
+
+/* ---------------- voices: recorded natural voices ---------------- */
+function vid(sp){if(sp===player)return 'p_'+pick.g;if(sp.vid)return sp.vid;if(!sp.look)return 'narr';const L=sp.look;return (L.style==='scarf'||L.style==='long')?'crowdF':'crowdM';}
+const VO={bank:{},loads:{},cache:{},src:null,who:null,tok:0,fin:null,pending:Promise.resolve(),missing:new Set(),
+  load(name){if(!this.loads[name]){this.loads[name]=fetch('voice/'+name+'.json').then(r=>r.ok?r.json():{}).then(j=>{Object.assign(this.bank,j);}).catch(()=>{});this.pending=Promise.all(Object.values(this.loads));}return this.loads[name];},
+  stop(){const f=this.fin;this.fin=null;if(this.src){try{this.src.onended=null;this.src.stop();}catch(e){}this.src=null;}this.who=null;Music.duck(false);if(f)f();},
+  async say(sp,raw){const tok=++this.tok;this.stop();const k=vid(sp)+'|'+raw;
+    if(!this.bank[k])await Promise.race([this.pending,wait(3500)]);
+    if(tok!==this.tok)return;
+    const b64=this.bank[k];if(!b64||!AC){this.missing.add(k);return wait(500+raw.length*30);}
+    let buf=this.cache[k];
+    if(!buf){try{const bin=atob(b64),u=new Uint8Array(bin.length);for(let i=0;i<bin.length;i++)u[i]=bin.charCodeAt(i);buf=await new Promise((ok,no)=>AC.decodeAudioData(u.buffer,ok,no));this.cache[k]=buf;}catch(e){this.missing.add(k);return;}}
+    if(tok!==this.tok)return;
+    return new Promise(res=>{const src=AC.createBufferSource(),g=AC.createGain();src.buffer=buf;g.gain.value=sp&&sp.heart?.8:1.15;src.connect(g);g.connect(AC.destination);
+      this.src=src;this.who=sp;this.fin=res;Music.duck(true);
+      src.onended=()=>{if(this.src===src){this.src=null;this.who=null;this.fin=null;Music.duck(false);}res();};src.start();});}
+};
+const Voice={on:true,get who(){return VO.who;},speak(sp,text,raw){if(!this.on)return Promise.resolve();return VO.say(sp,raw==null?text:raw);},stop(){VO.stop();}};
+$('#mus').onclick=()=>{Music.on=!Music.on;muted=!Music.on;$('#mus').textContent=Music.on?'Music on':'Music off';Music.start();Music.level();};
+$('#voc').onclick=()=>{Voice.on=!Voice.on;if(!Voice.on)Voice.stop();$('#voc').textContent=Voice.on?'Voices on':'Voices off';};
+sfx.thunder=()=>{if(muted||!AC)return;try{const t=AC.currentTime,src=AC.createBufferSource();src.buffer=Music.noise||noiseBuf(AC);src.loop=true;const f=AC.createBiquadFilter();f.type='lowpass';f.frequency.value=240;const g=AC.createGain();g.gain.setValueAtTime(.0001,t);g.gain.exponentialRampToValueAtTime(.55,t+.06);g.gain.exponentialRampToValueAtTime(.0001,t+2.4);src.connect(f);f.connect(g);g.connect(AC.destination);src.start(t);src.stop(t+2.5);}catch(e){}};
+sfx.splash=()=>{if(muted||!AC)return;try{const t=AC.currentTime,src=AC.createBufferSource();src.buffer=Music.noise||noiseBuf(AC);const f=AC.createBiquadFilter();f.type='highpass';f.frequency.value=1200;const g=AC.createGain();g.gain.setValueAtTime(.0001,t);g.gain.exponentialRampToValueAtTime(.18,t+.02);g.gain.exponentialRampToValueAtTime(.0001,t+.3);src.connect(f);f.connect(g);g.connect(AC.destination);src.start(t);src.stop(t+.35);}catch(e){}};
+
+/* ---------------- people ---------------- */
+function drawPerson(c,x,y,L,o){
+  o=o||{};const s=L.size||1,dir=o.dir||'down',t=o.t||0,mv=!!o.moving,bt=o.bt||0;
+  c.save();c.translate(x,y);c.scale(s,s);
+  if(L.glow){const g=c.createRadialGradient(0,-36,6,0,-36,60);g.addColorStop(0,'rgba(255,240,180,.62)');g.addColorStop(1,'rgba(255,240,180,0)');c.fillStyle=g;c.beginPath();c.arc(0,-36,60,0,7);c.fill();}
+  ell(c,0,0,16,5.5,'rgba(30,20,10,.25)');
+  const ph=mv?Math.sin(t*12):0,bob=mv?Math.abs(Math.cos(t*12))*1.8:0;
+  if(o.seated){c.translate(0,12);ell(c,0,-9,17,8,shade(L.robe,-12));ell(c,-12,-5,4,2.6,'#5a3b22');ell(c,12,-5,4,2.6,'#5a3b22');}
+  else{ell(c,-5.5,-2-Math.max(0,ph)*3.5,4.3,2.9,'#5a3b22');ell(c,5.5,-2-Math.max(0,-ph)*3.5,4.3,2.9,'#5a3b22');}
+  c.translate(0,-bob);
+  const hy=-45,back=dir==='up';
+  if(!back){
+    if(L.style==='long'||L.style==='jesus'){c.fillStyle=L.hair;rr(c,-12.5,hy-3,25,L.style==='jesus'?30:27,10);c.fill();}
+    if(L.style==='scarf'){c.fillStyle=L.wrap;c.beginPath();c.moveTo(-15,-20);c.quadraticCurveTo(-17,hy-8,0,hy-14);c.quadraticCurveTo(17,hy-8,15,-20);c.closePath();c.fill();}
+    if(L.style==='wavy'){c.fillStyle=L.hair;rr(c,-12.5,hy-3,25,19,9);c.fill();}
+    if(L.cloak){c.fillStyle=L.cloak;c.beginPath();c.moveTo(-10,-35);c.quadraticCurveTo(-19,-20,-17.5,-2);c.lineTo(17.5,-2);c.quadraticCurveTo(19,-20,10,-35);c.closePath();c.fill();}
+  }
+  const armC=shade(L.robe,-24);
+  const arm=(sx,a)=>{c.save();c.translate(sx,-31);c.rotate(a);c.fillStyle=armC;rr(c,-3.6,-1,7.2,16,3.6);c.fill();circ(c,0,16,3.3,L.skin);c.restore();};
+  if(o.carry){arm(-10,-0.9);arm(10,0.9);}else if(o.wave){arm(-10.5,0.15);arm(10.5,-2.4+Math.sin(bt*8)*0.3);}else{arm(-10.5,0.12+ph*0.4);arm(10.5,-0.12-ph*0.4);}
+  c.fillStyle=L.robe;c.beginPath();c.moveTo(-13.5,-3);c.quadraticCurveTo(-14,-22,-9,-33);c.quadraticCurveTo(0,-36,9,-33);c.quadraticCurveTo(14,-22,13.5,-3);c.quadraticCurveTo(0,1,-13.5,-3);c.fill();
+  if(L.pattern==='stripes'){c.save();c.clip();c.fillStyle=L.accent;for(let sx=-12;sx<14;sx+=7)c.fillRect(sx,-37,2.8,38);c.restore();}
+  if(L.pattern==='border'){c.strokeStyle=L.accent;c.lineWidth=4;c.beginPath();c.moveTo(-13.2,-8);c.quadraticCurveTo(0,-4.5,13.2,-8);c.stroke();if(!back){c.lineWidth=2.4;c.beginPath();c.moveTo(-6,-34);c.lineTo(0,-26);c.lineTo(6,-34);c.stroke();}}
+  c.strokeStyle=L.trim||shade(L.robe,-30);c.lineWidth=2.6;c.beginPath();c.moveTo(-13,-6);c.quadraticCurveTo(0,-2.5,13,-6);c.stroke();
+  c.strokeStyle='rgba(0,0,0,.08)';c.lineWidth=1.2;c.beginPath();c.moveTo(-5,-28);c.lineTo(-6,-6);c.moveTo(5,-28);c.lineTo(6,-6);c.stroke();
+  if(L.sash&&!back){c.strokeStyle=L.sash;c.lineWidth=4.5;c.beginPath();c.moveTo(-8.5,-32);c.lineTo(10,-9);c.stroke();}
+  c.fillStyle=L.belt||shade(L.robe,-42);c.fillRect(-12,-19,24,3.2);
+  if(L.cloak){c.fillStyle=L.cloak;if(back){c.beginPath();c.moveTo(-10,-35);c.quadraticCurveTo(-19,-20,-17.5,-2);c.lineTo(17.5,-2);c.quadraticCurveTo(19,-20,10,-35);c.closePath();c.fill();}else{c.beginPath();c.moveTo(-10,-35);c.quadraticCurveTo(-16,-20,-15,-2);c.lineTo(-10,-2);c.quadraticCurveTo(-11,-20,-7,-34);c.closePath();c.fill();c.beginPath();c.moveTo(10,-35);c.quadraticCurveTo(16,-20,15,-2);c.lineTo(10,-2);c.quadraticCurveTo(11,-20,7,-34);c.closePath();c.fill();circ(c,-6,-32,1.8,'#e9c45a');circ(c,6,-32,1.8,'#e9c45a');}}
+  if(L.fine){c.strokeStyle='#e9c45a';c.lineWidth=1.5;c.beginPath();c.moveTo(0,-33);c.lineTo(0,-5);c.stroke();}
+  if(!back){c.fillStyle=L.skin;c.beginPath();c.moveTo(-4.5,-34);c.lineTo(4.5,-34);c.lineTo(0,-28.5);c.closePath();c.fill();}
+  if(L.crutch){c.strokeStyle='#7a5a3a';c.lineWidth=2.6;c.beginPath();c.moveTo(17,-34);c.lineTo(19,o.seated?-4:0);c.moveTo(13,-34);c.lineTo(21,-34);c.stroke();}
+  circ(c,0,hy,11.8,L.skin);
+  if(!back&&dir==='down'){circ(c,-11.4,hy+1,2.6,L.skin);circ(c,11.4,hy+1,2.6,L.skin);}
+  if(!back){
+    const ex=dir==='left'?-3.8:dir==='right'?3.8:0;
+    const blink=((bt*1000+(L.seed||0)*997)%4300)<130;
+    c.fillStyle='rgba(235,110,110,.33)';c.beginPath();c.arc(ex-7,hy+4.5,2.7,0,7);c.fill();c.beginPath();c.arc(ex+7,hy+4.5,2.7,0,7);c.fill();
+    if(o.sleep){c.strokeStyle='#2a1a10';c.lineWidth=1.5;c.beginPath();c.arc(ex-4.2,hy,2.4,0.1*Math.PI,0.9*Math.PI);c.moveTo(ex+6.6,hy);c.arc(ex+4.2,hy,2.4,0.1*Math.PI,0.9*Math.PI);c.stroke();}
+    else if(blink){c.strokeStyle='#2a1a10';c.lineWidth=1.5;c.beginPath();c.moveTo(ex-6,hy+.5);c.lineTo(ex-2.4,hy+.5);c.moveTo(ex+2.4,hy+.5);c.lineTo(ex+6,hy+.5);c.stroke();}
+    else{ell(c,ex-4.2,hy+.3,1.9,2.6,'#2a1a10');ell(c,ex+4.2,hy+.3,1.9,2.6,'#2a1a10');circ(c,ex-3.6,hy-.7,.85,'#fff');circ(c,ex+4.8,hy-.7,.85,'#fff');}
+    c.strokeStyle=shade(L.hair,-10);c.lineWidth=1.4;c.lineCap='round';c.beginPath();
+    if(o.sad){c.moveTo(ex-6.2,hy-5.6);c.lineTo(ex-2.2,hy-4);c.moveTo(ex+2.2,hy-4);c.lineTo(ex+6.2,hy-5.6);}
+    else{c.moveTo(ex-6.2,hy-4.2);c.quadraticCurveTo(ex-4.2,hy-5.8,ex-2.2,hy-4.4);c.moveTo(ex+2.2,hy-4.4);c.quadraticCurveTo(ex+4.2,hy-5.8,ex+6.2,hy-4.2);}
+    c.stroke();
+    if(L.beard){c.fillStyle=L.beardC||L.hair;c.beginPath();c.moveTo(-11,hy+1);c.quadraticCurveTo(-10.5,hy+13,0,hy+15);c.quadraticCurveTo(10.5,hy+13,11,hy+1);c.quadraticCurveTo(7,hy+5,ex+3,hy+5.5);c.lineTo(ex-3,hy+5.5);c.quadraticCurveTo(-7,hy+5,-11,hy+1);c.fill();}
+    c.strokeStyle='rgba(120,60,40,.45)';c.lineWidth=1.2;c.beginPath();c.moveTo(ex,hy+1.5);c.quadraticCurveTo(ex+1.5,hy+3.2,ex,hy+3.8);c.stroke();
+    if(o.talking&&Math.sin(bt*18)>0){ell(c,ex,hy+7,2.6,2,'#7a2e22');}
+    else if(o.sad){c.strokeStyle='#7a2e22';c.lineWidth=1.5;c.beginPath();c.arc(ex,hy+9,3,1.2*Math.PI,1.8*Math.PI);c.stroke();}
+    else{c.strokeStyle='#7a2e22';c.lineWidth=1.5;c.beginPath();c.arc(ex,hy+5,o.happy?3.9:3,0.18*Math.PI,0.82*Math.PI);c.stroke();}
+  }
+  hairTop(c,L,hy,back);
+  if(o.carry)o.carry(c,0,-22);
+  c.restore();
+}
+function hairTop(c,L,hy,back){
+  const st=L.style;
+  if(st==='wrap'||st==='scarf'){
+    c.fillStyle=L.wrap;
+    if(back){c.beginPath();c.arc(0,hy,13,0,7);c.fill();if(st==='scarf'){rr(c,-14.5,hy,29,24,8);c.fill();}return;}
+    c.beginPath();c.arc(0,hy-1,13.2,Math.PI*0.92,Math.PI*2.08);c.closePath();c.fill();
+    c.strokeStyle=shade(L.wrap,-38);c.lineWidth=2;c.beginPath();c.arc(0,hy-1,12.4,Math.PI*1.0,Math.PI*2.0);c.stroke();
+    if(st==='wrap'){c.fillStyle=L.wrap;rr(c,-14.5,hy-4,5,16,2);c.fill();rr(c,9.5,hy-4,5,16,2);c.fill();}
+    return;
+  }
+  c.fillStyle=L.hair;
+  if(back){c.beginPath();c.arc(0,hy-.5,12.4,0,7);c.fill();if(st==='bun')circ(c,0,hy-12,6.5,L.hair);if(st==='wavy'){rr(c,-12.5,hy,25,16,8);c.fill();}if(st==='braids'){for(const sx of[-8,8])for(let k=0;k<6;k++)circ(c,sx,hy+4+k*4.2,3.3-k*.2,L.hair);}if(st==='long'||st==='jesus'){rr(c,-12.5,hy,25,st==='jesus'?27:24,10);c.fill();}if(L.band){c.strokeStyle=L.band;c.lineWidth=2.6;c.beginPath();c.arc(0,hy-1,12.2,Math.PI*1.1,Math.PI*1.9);c.stroke();}return;}
+  c.beginPath();c.arc(0,hy-1,12.5,Math.PI,Math.PI*2);c.quadraticCurveTo(8,hy-4,2,hy-7);c.quadraticCurveTo(-6,hy-5,-12.5,hy-1);c.fill();
+  if(st==='short'){for(let i=0;i<6;i++){const a=Math.PI*(1.06+i*0.176);circ(c,Math.cos(a)*10.6,hy-1+Math.sin(a)*10.6,4.3,L.hair);}rr(c,-12.8,hy-4,3.3,7,1.5);c.fill();rr(c,9.5,hy-4,3.3,7,1.5);c.fill();}
+  if(st==='straight'){rr(c,-11.5,hy-10,23,5.5,2.5);c.fill();rr(c,-12.8,hy-5,3.4,9,1.5);c.fill();rr(c,9.4,hy-5,3.4,9,1.5);c.fill();c.strokeStyle=shade(L.hair,28);c.lineWidth=1;c.beginPath();c.moveTo(-6,hy-11);c.lineTo(-7,hy-6);c.moveTo(2,hy-12);c.lineTo(1,hy-6);c.stroke();}
+  if(st==='wavy'){for(const sx of[-1,1])for(let k=0;k<4;k++)circ(c,sx*(11.5+(k%2)),hy-3+k*4.2,3.4,L.hair);for(let i=0;i<5;i++){const a=Math.PI*(1.1+i*0.2);circ(c,Math.cos(a)*10,hy-2+Math.sin(a)*10,3.6,L.hair);}}
+  if(st==='braids'){for(const sx of[-12,12]){for(let k=0;k<7;k++)circ(c,sx+(k%2?.6:-.6),hy+1+k*4.3,3.2-k*.15,L.hair);circ(c,sx,hy+31,2.2,L.band||'#e9a91f');}c.strokeStyle=shade(L.hair,30);c.lineWidth=1;c.beginPath();c.moveTo(0,hy-12.5);c.lineTo(0,hy-6);c.stroke();}
+  if(st==='bun'){circ(c,0,hy-13,6.5,L.hair);if(L.band){c.strokeStyle=L.band;c.lineWidth=2.2;c.beginPath();c.arc(0,hy-13,4,0,7);c.stroke();}rr(c,-12.8,hy-4,3.2,8,1.5);c.fill();rr(c,9.6,hy-4,3.2,8,1.5);c.fill();}
+  if(st==='long'){rr(c,-13.6,hy-4,5.6,25,3);c.fill();rr(c,8,hy-4,5.6,25,3);c.fill();
+    if(L.band){c.strokeStyle=L.band;c.lineWidth=2.6;c.beginPath();c.arc(0,hy-1,12.2,Math.PI*1.1,Math.PI*1.9);c.stroke();circ(c,9,hy-9,2.6,'#fff');circ(c,9,hy-9,1.2,L.band);}}
+  if(st==='jesus'){rr(c,-13.8,hy-5,6.2,28,3);c.fill();rr(c,7.6,hy-5,6.2,28,3);c.fill();c.strokeStyle=shade(L.hair,25);c.lineWidth=1;c.beginPath();c.moveTo(0,hy-12.5);c.quadraticCurveTo(-1,hy-9,-2,hy-6);c.stroke();}
+}
+
+/* carried items */
+function drawBread(c,x,y,s){c.save();c.translate(x,y);c.scale(s,s);ell(c,0,0,11,6.5,'#d59a52');ell(c,-1,-1.5,9,4.5,'#e4b06a');c.strokeStyle='#a8722f';c.lineWidth=1.3;c.beginPath();c.moveTo(-6,-2);c.lineTo(-3,1);c.moveTo(-1,-3);c.lineTo(2,0);c.moveTo(4,-2);c.lineTo(7,1);c.stroke();c.restore();}
+function drawFish(c,x,y,s){c.save();c.translate(x,y);c.scale(s,s);c.fillStyle='#8fb3c2';c.beginPath();c.moveTo(-10,0);c.quadraticCurveTo(-2,-7,7,0);c.quadraticCurveTo(-2,7,-10,0);c.fill();c.beginPath();c.moveTo(6,0);c.lineTo(12,-5);c.lineTo(12,5);c.closePath();c.fill();circ(c,-6,-1,1.2,'#14303f');c.restore();}
+function drawJar(c,x,y,s){c.save();c.translate(x,y);c.scale(s,s);ell(c,0,1,9,3,'rgba(0,0,0,.2)');c.fillStyle='#b9653a';c.beginPath();c.moveTo(-4,-22);c.lineTo(4,-22);c.quadraticCurveTo(11,-14,9,-6);c.quadraticCurveTo(6,0,0,0);c.quadraticCurveTo(-6,0,-9,-6);c.quadraticCurveTo(-11,-14,-4,-22);c.fill();c.fillStyle='#d27a4a';c.fillRect(-5,-25,10,4);c.strokeStyle='#8a4524';c.lineWidth=2;c.beginPath();c.arc(-7,-17,3,Math.PI*.5,Math.PI*1.5);c.moveTo(7,-20);c.arc(7,-17,3,-Math.PI*.5,Math.PI*.5);c.stroke();c.fillStyle='rgba(255,255,255,.25)';c.fillRect(-5,-16,2,9);c.restore();}
+function drawBasket(c,x,y,s,full){c.save();c.translate(x,y);c.scale(s,s);ell(c,0,2,20,5,'rgba(0,0,0,.2)');if(full){for(let i=0;i<5;i++)drawBread(c,-12+i*6,-14-(i%2)*3,.7);drawFish(c,6,-17,.8);}c.fillStyle='#b8873f';c.beginPath();c.moveTo(-18,-12);c.lineTo(18,-12);c.lineTo(14,0);c.lineTo(-14,0);c.closePath();c.fill();c.strokeStyle='#8a5f25';c.lineWidth=1.2;for(let i=-14;i<=14;i+=5){c.beginPath();c.moveTo(i*1.15,-12);c.lineTo(i,0);c.stroke();}c.beginPath();c.moveTo(-16,-6);c.lineTo(16,-6);c.stroke();ell(c,0,-12,18,3,'#9c6d2e');if(full){drawBread(c,-5,-13,.75);drawBread(c,6,-13,.7);}c.restore();}
+const CARRY={bucket:(c,x,y)=>{c.save();c.translate(x,y+6);c.fillStyle='#8a6038';c.beginPath();c.moveTo(-9,-12);c.lineTo(9,-12);c.lineTo(7,4);c.lineTo(-7,4);c.closePath();c.fill();c.strokeStyle='#5a3a1e';c.lineWidth=1.5;c.beginPath();c.moveTo(-8,-7);c.lineTo(8,-7);c.moveTo(-7.5,-1);c.lineTo(7.5,-1);c.stroke();ell(c,0,-12,9,2.5,'#4a90b8');c.restore();},coins:(c,x,y)=>{c.save();c.translate(x,y+4);ell(c,0,0,9,8,'#a8874f');c.fillStyle='#8a6a3a';c.beginPath();c.moveTo(-5,-7);c.lineTo(5,-7);c.lineTo(3,-11);c.lineTo(-3,-11);c.closePath();c.fill();circ(c,-3,-1,2.2,'#f2c64a');circ(c,3,1,2.2,'#f2c64a');c.restore();},jar:(c,x,y)=>drawJar(c,x,y+8,.9),food:(c,x,y)=>{drawBread(c,x-3,y,.9);drawFish(c,x+4,y-5,.75);},basket:(c,x,y)=>drawBasket(c,x,y+6,.55,true)};
+
+/* ---------------- props ---------------- */
+function tree(seed,kind){const R=rng(seed);return mk(170,180,c=>{
+  ell(c,85,170,46,11,'rgba(30,25,10,.25)');
+  c.fillStyle='#6e5238';c.beginPath();c.moveTo(72,172);c.bezierCurveTo(64,140,80,126,70,98);c.lineTo(98,98);c.bezierCurveTo(88,126,102,140,94,172);c.closePath();c.fill();
+  c.strokeStyle='#4f3a27';c.lineWidth=2;c.beginPath();c.moveTo(79,168);c.bezierCurveTo(74,138,86,124,80,102);c.stroke();
+  c.strokeStyle='#6e5238';c.lineWidth=7;c.lineCap='round';c.beginPath();c.moveTo(76,106);c.lineTo(52,80);c.moveTo(90,106);c.lineTo(116,78);c.stroke();
+  const pal=kind==='olive'?['#61714a','#76875a','#8a9b68','#adb98c']:['#3b6a2b','#4c7f36','#5e9343','#7fb35c'];
+  for(let L=0;L<4;L++){for(let i=0;i<(L===3?12:8);i++){const a=R()*Math.PI*2,d=R()*40*(1-L*.18);circ(c,85+Math.cos(a)*d*1.3,64+Math.sin(a)*d*.75-L*4,L===3?4+R()*4:15+R()*13,pal[L]);}}
+  if(kind==='olive'){for(let i=0;i<16;i++)circ(c,45+R()*80,40+R()*45,1.7,'#3e3b2a');}
+});}
+function palm(seed){const R=rng(seed);return mk(150,210,c=>{
+  ell(c,70,203,26,7,'rgba(30,25,10,.25)');
+  for(let i=0;i<14;i++){const t=i/13,x=70+Math.sin(t*1.6)*14*t,y=203-t*140;c.fillStyle=i%2?'#8a6a45':'#7a5c3a';rr(c,x-6,y-11,12,12,4);c.fill();}
+  const tx=84,ty=62;
+  for(let i=0;i<9;i++){const a=-Math.PI+i*(Math.PI/8)+(R()-.5)*.2,l=48+R()*16;c.strokeStyle=i%2?'#4f8a3a':'#3e7530';c.lineWidth=7;c.lineCap='round';c.beginPath();c.moveTo(tx,ty);c.quadraticCurveTo(tx+Math.cos(a)*l*.6,ty+Math.sin(a)*l*.6-14,tx+Math.cos(a)*l,ty+Math.sin(a)*l*.5+14);c.stroke();}
+  circ(c,tx-4,ty+6,4,'#6b4a20');circ(c,tx+4,ty+7,4,'#6b4a20');
+});}
+function house(seed,door,awning){const R=rng(seed);return mk(200,200,c=>{
+  ell(c,100,190,96,12,'rgba(40,25,10,.22)');
+  c.fillStyle='#d9c095';c.fillRect(18,80,164,108);
+  for(let i=0;i<90;i++){c.fillStyle=R()<.5?'rgba(150,110,60,.16)':'rgba(255,240,210,.25)';c.fillRect(20+R()*156,82+R()*102,6+R()*12,3+R()*3);}
+  c.fillStyle='#ead9b4';c.beginPath();c.moveTo(18,80);c.lineTo(182,80);c.lineTo(172,30);c.lineTo(28,30);c.closePath();c.fill();
+  c.strokeStyle='#c4a674';c.lineWidth=5;c.stroke();
+  c.fillStyle='#7a5a3a';for(let x=30;x<178;x+=18)c.fillRect(x,82,5,5);
+  c.strokeStyle='#d6b04a';c.lineWidth=2;for(let i=0;i<14;i++){const x=40+R()*50,y=40+R()*28;c.beginPath();c.moveTo(x,y);c.lineTo(x+16,y+3);c.stroke();}
+  c.fillStyle='#b8873f';c.fillRect(112,42,42,24);c.fillStyle='#9a6a2a';for(let i=0;i<4;i++)c.fillRect(112,46+i*6,42,2);
+  c.fillStyle='#3f2c1d';c.beginPath();c.moveTo(84,188);c.lineTo(84,144);c.arc(100,144,16,Math.PI,0);c.lineTo(116,188);c.closePath();c.fill();
+  c.fillStyle=door;c.fillRect(87,146,13,42);c.strokeStyle='rgba(0,0,0,.25)';c.lineWidth=1;for(let x=90;x<100;x+=4){c.beginPath();c.moveTo(x,146);c.lineTo(x,188);c.stroke();}
+  c.fillStyle='#3f2c1d';c.fillRect(34,114,24,17);c.strokeStyle='#8a6a44';c.lineWidth=2;c.beginPath();c.moveTo(46,114);c.lineTo(46,131);c.moveTo(34,122);c.lineTo(58,122);c.stroke();
+  for(let i=0;i<7;i++){c.fillStyle=shade('#cdb281',-i*3);c.fillRect(150-i*1,180-i*15,30,9);c.fillStyle='rgba(0,0,0,.15)';c.fillRect(150-i*1,187-i*15,30,2);}
+  if(awning){for(let k=0;k<5;k++){c.fillStyle=k%2?awning:'#f3ead6';c.beginPath();c.moveTo(72+k*11,124);c.lineTo(83+k*11,124);c.lineTo(84+k*11,136);c.lineTo(71+k*11,136);c.closePath();c.fill();}c.strokeStyle='#6e5238';c.lineWidth=2;c.beginPath();c.moveTo(72,136);c.lineTo(70,188);c.moveTo(127,136);c.lineTo(129,188);c.stroke();}
+  drawJar(c,64,188,1);drawJar(c,138,188,.8);
+});}
+function well(){return mk(120,110,c=>{
+  ell(c,60,92,46,12,'rgba(30,25,10,.22)');ell(c,60,78,42,18,'#a59a88');ell(c,60,74,31,12,'#24323a');ell(c,56,72,10,3,'rgba(160,210,230,.5)');
+  c.strokeStyle='#8a8070';c.lineWidth=1.5;for(let i=0;i<10;i++){const a=i/10*Math.PI*2;c.beginPath();c.moveTo(60+Math.cos(a)*32,78+Math.sin(a)*13);c.lineTo(60+Math.cos(a)*42,78+Math.sin(a)*18);c.stroke();}
+  c.strokeStyle='#6e5238';c.lineWidth=6;c.beginPath();c.moveTo(24,82);c.lineTo(24,20);c.moveTo(96,82);c.lineTo(96,20);c.moveTo(18,22);c.lineTo(102,22);c.stroke();
+  c.strokeStyle='#c9b48a';c.lineWidth=1.5;c.beginPath();c.moveTo(60,22);c.lineTo(60,52);c.stroke();c.fillStyle='#7a5a3a';rr(c,52,50,16,12,3);c.fill();
+});}
+function stall(){return mk(190,160,c=>{
+  ell(c,95,152,84,9,'rgba(30,25,10,.2)');c.strokeStyle='#6e5238';c.lineWidth=5;c.beginPath();c.moveTo(20,150);c.lineTo(20,30);c.moveTo(170,150);c.lineTo(170,30);c.stroke();
+  for(let k=0;k<8;k++){c.fillStyle=k%2?'#a8433a':'#f3ead6';c.beginPath();c.moveTo(12+k*20.75,26);c.lineTo(32.75+k*20.75,26);c.lineTo(34+k*20.75,48);c.quadraticCurveTo(22+k*20.75,54,10+k*20.75,48);c.closePath();c.fill();}
+  c.fillStyle='#8a6440';c.fillRect(26,100,138,12);c.fillStyle='#6e5238';c.fillRect(30,112,6,38);c.fillRect(154,112,6,38);
+  const R=rng(5);[[50,'#b3263a'],[90,'#6b3a6e'],[130,'#e0a03a']].forEach(([x,col])=>{drawBasket(c,x,104,1,false);for(let i=0;i<7;i++)circ(c,x-10+R()*20,90+R()*6,4.5,col);});
+  drawJar(c,175,150,.8);
+});}
+function rack(){return mk(130,110,c=>{ell(c,65,102,50,8,'rgba(30,25,10,.2)');c.strokeStyle='#6e5238';c.lineWidth=5;c.beginPath();c.moveTo(14,102);c.lineTo(14,20);c.moveTo(116,102);c.lineTo(116,20);c.moveTo(8,24);c.lineTo(122,24);c.stroke();for(let i=0;i<7;i++){c.save();c.translate(26+i*13,46);c.rotate(Math.PI/2);drawFish(c,0,0,1.1);c.restore();c.strokeStyle='#c9b48a';c.lineWidth=1;c.beginPath();c.moveTo(26+i*13,24);c.lineTo(26+i*13,34);c.stroke();}});}
+function rock(seed,s){const R=rng(seed);return mk(120*s,80*s,c=>{c.scale(s,s);ell(c,60,72,48,9,'rgba(30,25,10,.2)');c.fillStyle='#9d9585';c.beginPath();c.moveTo(14,72);c.quadraticCurveTo(8,40,34,26+R()*8);c.quadraticCurveTo(60,10,86,24);c.quadraticCurveTo(112,40,106,72);c.closePath();c.fill();c.fillStyle='#b9b2a2';c.beginPath();c.moveTo(30,34);c.quadraticCurveTo(58,16,84,30);c.quadraticCurveTo(60,30,30,40);c.fill();c.strokeStyle='rgba(60,50,40,.3)';c.lineWidth=1.5;c.beginPath();c.moveTo(60,30);c.lineTo(54,60);c.stroke();});}
+function bush(seed){const R=rng(seed);return mk(80,60,c=>{ell(c,40,54,30,6,'rgba(30,25,10,.2)');for(let i=0;i<9;i++)circ(c,18+R()*44,26+R()*22,10+R()*6,['#4c7f36','#5e9343','#3b6a2b'][i%3]);for(let i=0;i<5;i++)circ(c,18+R()*44,22+R()*20,2,'#d8323a');});}
+function boat(){return mk(250,120,c=>{
+  c.strokeStyle='#5a3a1e';c.lineWidth=4;c.beginPath();c.moveTo(125,62);c.lineTo(125,6);c.stroke();
+  c.strokeStyle='#5a3a1e';c.lineWidth=3;c.beginPath();c.moveTo(90,20);c.lineTo(160,14);c.stroke();
+  c.fillStyle='#efe6d2';c.beginPath();c.moveTo(92,20);c.quadraticCurveTo(125,30,158,14);c.lineTo(158,20);c.quadraticCurveTo(125,36,92,26);c.closePath();c.fill();
+  ell(c,125,100,110,10,'rgba(10,30,50,.25)');
+  c.fillStyle='#7a4f2e';c.beginPath();c.moveTo(8,56);c.quadraticCurveTo(125,118,242,56);c.lineTo(226,50);c.lineTo(24,50);c.closePath();c.fill();
+  ell(c,125,54,100,12,'#9a6a40');ell(c,125,56,90,8,'#7d5434');
+  c.strokeStyle='#5a3a1e';c.lineWidth=1.5;for(let k=1;k<4;k++){c.beginPath();c.moveTo(14,56+k*4);c.quadraticCurveTo(125,104+k*2,236,56+k*4);c.stroke();}
+  c.fillStyle='#a87a4a';[70,125,180].forEach(x=>c.fillRect(x-3,46,6,14));
+});}
+function baskets12(){return mk(60,40,c=>drawBasket(c,30,36,1,true));}
+
+/* ---------------- backgrounds ---------------- */
+function smoothPath(c,pts){c.beginPath();c.moveTo(pts[0][0],pts[0][1]);for(let i=1;i<pts.length-1;i++){const mx=(pts[i][0]+pts[i+1][0])/2,my=(pts[i][1]+pts[i+1][1])/2;c.quadraticCurveTo(pts[i][0],pts[i][1],mx,my);}const l=pts[pts.length-1];c.lineTo(l[0],l[1]);}
+function grassNoise(c,W,H,R,cols,n){c.lineWidth=1.4;for(let i=0;i<n;i++){const x=R()*W,y=R()*H;c.strokeStyle=cols[i%cols.length];c.beginPath();c.moveTo(x,y);c.lineTo(x+(R()-.5)*4,y-3-R()*5);c.stroke();}}
+function flowers(c,W,H,R,n,cols,minY,avoid){for(let i=0;i<n;i++){const x=R()*W,y=minY(x)+R()*(H-minY(x));if(avoid&&avoid(x,y))continue;const col=cols[Math.floor(R()*cols.length)];for(let p=0;p<5;p++){const a=p/5*Math.PI*2;circ(c,x+Math.cos(a)*2.4,y+Math.sin(a)*2.4,1.9,col);}circ(c,x,y,1.4,'#f5d26b');}}
+function water(c,W,sl,top){const g=c.createLinearGradient(0,0,0,top);g.addColorStop(0,'#1b5884');g.addColorStop(.6,'#2a77a6');g.addColorStop(1,'#4aa0c8');c.fillStyle=g;c.beginPath();c.moveTo(0,0);c.lineTo(W,0);for(let x=W;x>=0;x-=10)c.lineTo(x,sl(x));c.closePath();c.fill();
+  c.strokeStyle='rgba(130,205,228,.5)';c.lineWidth=28;c.beginPath();for(let x=0;x<=W;x+=10)c.lineTo(x,sl(x)-12);c.stroke();}
+function bg1(W,H,sl,path){return mk(W,H,c=>{const R=rng(11);
+  c.fillStyle='#c6c48a';c.fillRect(0,0,W,H);
+  for(let i=0;i<70;i++){const g=c.createRadialGradient(0,0,0,0,0,1);const x=R()*W,y=R()*H,r=60+R()*140;ell(c,x,y,r,r*.5,R()<.5?'rgba(150,165,90,.25)':'rgba(225,215,160,.25)');}
+  grassNoise(c,W,H,R,['#b4b475','#d6d29c','#a6ad66','#c4b57f','#bcc480'],22000);
+  ell(c,430,1140,560,280,'rgba(214,192,142,.85)');
+  for(let i=0;i<1500;i++){c.fillStyle=R()<.5?'rgba(160,130,80,.25)':'rgba(240,225,190,.35)';c.fillRect(-100+R()*1100,880+R()*520,3,2);}
+  c.fillStyle='#e6d4a3';c.beginPath();c.moveTo(0,0);c.lineTo(W,0);for(let x=W;x>=0;x-=20)c.lineTo(x,sl(x)+135+12*Math.sin(x/70));c.closePath();c.fill();
+  for(let i=0;i<5000;i++){const x=R()*W,y=sl(x)+R()*130;c.fillStyle=R()<.5?'rgba(190,160,110,.35)':'rgba(255,245,215,.5)';c.fillRect(x,y,2,2);}
+  c.strokeStyle='#cdb784';c.lineWidth=18;c.beginPath();for(let x=0;x<=W;x+=10)c.lineTo(x,sl(x)+7);c.stroke();
+  water(c,W,sl,460);
+  c.lineCap='round';c.lineJoin='round';c.strokeStyle='#bc9b68';c.lineWidth=60;smoothPath(c,path);c.stroke();c.strokeStyle='#d8bd8b';c.lineWidth=46;smoothPath(c,path);c.stroke();
+  for(let i=0;i<path.length-1;i++){for(let k=0;k<30;k++){const t=R(),x=path[i][0]+(path[i+1][0]-path[i][0])*t+(R()-.5)*40,y=path[i][1]+(path[i+1][1]-path[i][1])*t+(R()-.5)*30;circ(c,x,y,1.5+R()*1.5,R()<.5?'#a88e64':'#efe0bc');}}
+  flowers(c,W,H,R,500,['#f2f2f2','#e9c54a','#c8506a','#9a7ac0'],x=>sl(x)+150,(x,y)=>x<1000&&y>880);
+  c.strokeStyle='#5f8a3a';c.lineWidth=2;for(let i=0;i<260;i++){const x=R()*650,y=sl(x)+2+R()*20;c.beginPath();c.moveTo(x,y);c.quadraticCurveTo(x+2,y-12,x+(R()-.5)*8,y-22-R()*10);c.stroke();}
+  c.save();c.translate(1015,sl(1015)+62);c.rotate(-.06);c.strokeStyle='rgba(120,100,70,.75)';c.lineWidth=1.2;for(let i=0;i<=14;i++){c.beginPath();c.moveTo(-70+i*10,-22);c.lineTo(-60+i*10,22);c.stroke();c.beginPath();c.moveTo(-60+i*10,-22);c.lineTo(-70+i*10,22);c.stroke();}for(let i=0;i<8;i++)circ(c,-70+i*20,-22,2.5,'#d8c06a');c.restore();
+  const fx=1300,fy=sl(1300)+105;for(let i=0;i<9;i++){const a=i/9*Math.PI*2;ell(c,fx+Math.cos(a)*20,fy+Math.sin(a)*9,6,4,'#8f877a');}ell(c,fx,fy,14,6,'#4a4038');ell(c,fx,fy,8,3,'#6a5a4a');
+});}
+function bg2(W,H,sl,path,spots){return mk(W,H,c=>{const R=rng(23);
+  c.fillStyle='#86b356';c.fillRect(0,0,W,H);
+  for(let i=0;i<80;i++){const x=R()*W,y=R()*H,r=80+R()*160;ell(c,x,y,r,r*.5,R()<.5?'rgba(70,120,40,.22)':'rgba(170,205,110,.22)');}
+  const g=c.createRadialGradient(1150,540,20,1150,540,380);g.addColorStop(0,'rgba(200,225,140,.7)');g.addColorStop(1,'rgba(200,225,140,0)');c.fillStyle=g;c.fillRect(700,150,900,800);
+  grassNoise(c,W,H,R,['#74a447','#9bc865','#6a9a3e','#8dbb58','#a9cf72'],26000);
+  c.fillStyle='#dccb98';c.beginPath();c.moveTo(0,0);c.lineTo(W,0);for(let x=W;x>=0;x-=20)c.lineTo(x,sl(x)+48+8*Math.sin(x/60));c.closePath();c.fill();
+  water(c,W,sl,200);
+  c.lineCap='round';c.lineJoin='round';c.strokeStyle='#b59a66';c.lineWidth=52;smoothPath(c,path);c.stroke();c.strokeStyle='#cdb27e';c.lineWidth=38;smoothPath(c,path);c.stroke();
+  flowers(c,W,H,R,1400,['#d92f3a','#d92f3a','#f4f4f4','#f1c83c','#a07ad0'],x=>sl(x)+60,(x,y)=>spots.some(s=>Math.abs(x-s[0])<70&&Math.abs(y-s[1])<40));
+  const cols=[['#a8433a','#f3e3c0'],['#3f6f9f','#e9d9a8'],['#6a8f3a','#f1e6c8'],['#7a5aa0','#efd9a0']];
+  spots.forEach((s,i)=>{const [a,b]=cols[i%4];c.save();c.translate(s[0],s[1]+12);c.rotate((R()-.5)*.15);c.fillStyle=a;rr(c,-62,-22,124,46,6);c.fill();c.fillStyle=b;for(let k=0;k<5;k++)c.fillRect(-62+k*26+8,-22,6,46);c.restore();});
+});}
+
+/* ---------------- world state ---------------- */
+let W=2400,H=1400,sl=()=>0,bg=null,props=[],npcs=[],items=[],groups=[],waves=[],birds=[],prints=[],sparks=[];
+let ground=null,walkFn=null,CH=[];
+let level=0,mode='title',cut=0,T=0,goalTarget=null,camT=null,titleCard=null,fade=0,stars=0;
+const verses=[];
+const cam={x:0,y:0};
+const player={name:'Sam',x:0,y:0,dir:'down',moving:false,walkT:0,look:null,carry:null,isPlayer:true,tap:null};
+const narr={name:'Storyteller',vid:'narr'};
+let LV=null;
+
+function addProp(img,x,y,ax,ay,block,extra){const p=Object.assign({img,x,y,ax,ay,block},extra||{});props.push(p);return p;}
+function npc(o){const n=Object.assign({x:0,y:0,dir:'down',moving:false,walkT:0,speed:110,talk:null,facePlayer:true},o);n.look.seed=n.look.seed||Math.floor(Math.random()*9);npcs.push(n);return n;}
+function walkable(x,y){if(x<20||y<30||x>W-20||y>H-12)return false;if(walkFn&&!walkFn(x,y))return false;if(y<sl(x)+12)return false;for(const p of props){const b=p.block;if(!b)continue;if(b.r){if(Math.hypot(x-p.x,(y-p.y)*1.4)<b.r)return false;}else if(x>p.x-b.w/2&&x<p.x+b.w/2&&y>p.y-b.h&&y<p.y+4)return false;}return true;}
+
+/* ---------------- looks ---------------- */
+const JESUS_LOOK={skin:'#c68f62',hair:'#4a2f1c',style:'jesus',beard:true,robe:'#f7f3e8',trim:'#d6c9aa',sash:'#b3412f',belt:'#b3412f',glow:true};
+const HEART={name:'Jesus\' words in your heart',vid:'jesus',look:JESUS_LOOK,isJesus:true,heart:true};
+const looks={
+  peter:{skin:'#b98058',hair:'#3a2a1e',style:'short',beard:true,robe:'#6f8898',trim:'#4d6474'},
+  andrew:{skin:'#c28c63',hair:'#2a1c12',style:'short',beard:true,robe:'#9c6b3f'},
+  philip:{skin:'#c99a6c',hair:'#4a3020',style:'wrap',wrap:'#e3d6b8',beard:true,robe:'#6e7d4a'},
+  james:{skin:'#bd875d',hair:'#2a1c12',style:'short',beard:true,robe:'#a8433a'},
+  john:{skin:'#c99a6c',hair:'#3a2a1e',style:'short',robe:'#3f6f9f'},
+  zeb:{skin:'#b98a63',hair:'#cfcac0',beardC:'#e8e4da',style:'wrap',wrap:'#e8e0cc',beard:true,robe:'#7a5a3a'},
+  mother:{skin:null,hair:'#2a1c12',style:'scarf',wrap:'#3f6f8f',robe:'#c9a46a'},
+  tobiah:{skin:'#b98a63',hair:'#cfcac0',beardC:'#efece4',style:'wrap',wrap:'#efe6d0',beard:true,robe:'#8b6d4a'},
+  seller:{skin:'#c99a6c',hair:'#2a1c12',style:'scarf',wrap:'#a8433a',robe:'#d8b35a'},
+  eli:{skin:'#a87650',hair:'#2c1d12',style:'short',robe:'#c0603a',size:.82},
+  boy:{skin:'#b9845a',hair:'#3b2a1e',style:'short',robe:'#b97a3a',size:.8},
+};
+const SKINS=['#f6d6b8','#ecc29a','#d9a477','#bf875a','#986340','#6e432a'],HAIRS=['#1d140d','#3b2615','#6b4423','#a8642a','#8e3b1f','#dcb46a'],
+  ROBES=['#2f7fae','#1f4e79','#4aa3b8','#c0603a','#b3412f','#c96b8f','#6a8f3a','#3f7a5a','#8a5aa0','#d8a73a','#e8dcc0','#7a5230'],
+  ACCS=['#e9a91f','#b3412f','#2f7fae','#f3ead6','#6a8f3a','#8a5aa0','#d96aa0','#1d140d'],
+  CLOAKS=[null,'#7a5230','#3f6f8f','#8b2e2e','#4f6b3a','#e8dcc0','#4b3a6b','#c9a46a'],
+  PATS=[['plain','Plain'],['stripes','Stripes'],['border','Border'],['sash','Sash']],
+  HSTYLES={boy:[['short','Curly'],['straight','Straight'],['wavy','Wavy'],['wrap','Head cloth']],girl:[['long','Long'],['braids','Braids'],['bun','Bun'],['scarf','Head scarf']]};
+const pick={g:'boy',skin:2,hair:0,hs:0,robe:0,pat:0,acc:0,cloak:0};
+function playerLook(){const g=pick.g,acc=ACCS[pick.acc],pat=PATS[pick.pat][0],st=HSTYLES[g][pick.hs][0];return{skin:SKINS[pick.skin],hair:HAIRS[pick.hair],style:st,band:g==='girl'?acc:null,wrap:acc==='#1d140d'?'#efe6d0':acc,robe:ROBES[pick.robe],pattern:pat,accent:acc,sash:pat==='sash'?acc:null,belt:pat==='sash'?acc:null,cloak:CLOAKS[pick.cloak],size:.86,seed:3};}
+function crowdLook(R){const skin=['#c99a6c','#b98058','#a87650','#d4a57a','#8f6040'][Math.floor(R()*5)];const robe=['#c96b4a','#3f7fa8','#d8b35a','#6a8f3a','#b3412f','#7a5aa0','#a07a50','#5f7f8f'][Math.floor(R()*8)];const k=R();
+  if(k<.33)return{skin,hair:'#2a1c12',style:'scarf',wrap:['#e8dcc0','#a8433a','#3f6f8f','#6a8f3a'][Math.floor(R()*4)],robe};
+  if(k<.6)return{skin,hair:'#3a2a1e',style:'wrap',wrap:['#efe6d0','#d8c49a','#c9b48a'][Math.floor(R()*3)],beard:true,robe};
+  if(k<.8)return{skin,hair:'#2a1c12',style:'short',robe,size:.82};
+  return{skin,hair:'#3a2a1e',style:'long',band:'#e9a91f',robe,size:.82};}
+
+/* ---------------- dialog ---------------- */
+const dEl=$('#dialog'),dName=$('#dname'),dText=$('#dtext'),dRef=$('#dref'),dCh=$('#dchoices'),dNext=$('#dnext'),pctx=$('#portrait').getContext('2d');
+let dlg=null,speaking=null,typer=null;
+const fillName=s=>s.replace(/\{name\}/g,player.name);
+function drawPortrait(sp){const c=pctx;c.setTransform(2,0,0,2,0,0);c.clearRect(0,0,96,96);const g=c.createLinearGradient(0,0,0,96);g.addColorStop(0,sp.isJesus?'#fff1c9':'#d9ecf4');g.addColorStop(1,sp.isJesus?'#f4d48a':'#efdcae');c.fillStyle=g;c.fillRect(0,0,96,96);
+  if(!sp.look){c.fillStyle='#f3e2b8';rr(c,20,24,56,48,4);c.fill();c.fillStyle='#c9a46a';rr(c,14,20,12,56,6);c.fill();rr(c,70,20,12,56,6);c.fill();c.strokeStyle='#8a6a3a';c.lineWidth=2;for(let i=0;i<4;i++){c.beginPath();c.moveTo(30,36+i*9);c.lineTo(66-i*4,36+i*9);c.stroke();}return;}
+  drawPerson(c,48,50+45*2.3,Object.assign({},sp.look,{size:2.3,glow:false}),{dir:'down',bt:T,happy:true});
+  if(sp.heart){c.fillStyle='#d9435a';c.beginPath();c.moveTo(78,26);c.bezierCurveTo(78,20,70,18,70,24);c.bezierCurveTo(70,28,78,32,78,34);c.bezierCurveTo(78,32,86,28,86,24);c.bezierCurveTo(86,18,78,20,78,26);c.fill();}}
+function showSpeaker(sp){dName.textContent=sp===player?player.name:sp.name;dName.className='dname'+(sp.isJesus?' jesus':'');drawPortrait(sp);dEl.hidden=false;}
+function closeSoon(){setTimeout(()=>{if(!dlg)dEl.hidden=true;},40);}
+function say(sp,text,ref){return new Promise(res=>{const raw=text;text=fillName(text);showSpeaker(sp);dCh.innerHTML='';dRef.textContent=ref||'';dRef.hidden=!ref;dText.textContent='';dNext.hidden=true;speaking=sp;let i=0;clearInterval(typer);
+  if(ref&&sp.isJesus&&!verses.some(v=>v.ref===ref&&v.text===text)){verses.push({text,ref,ch:level});$('#vcount').textContent=verses.length;}
+  sfx.blip();Voice.speak(sp,text,raw);
+  const finish=()=>{clearInterval(typer);i=text.length;dText.textContent=text;dNext.hidden=false;speaking=null;};
+  typer=setInterval(()=>{i+=2;dText.textContent=text.slice(0,i);if(i>=text.length)finish();},26);
+  dlg={adv(){if(i<text.length){finish();return;}dlg=null;speaking=null;Voice.stop();closeSoon();res();}};
+});}
+function choose(sp,prompt,opts){return new Promise(res=>{showSpeaker(sp);dText.textContent=fillName(prompt);dRef.hidden=true;dNext.hidden=true;dCh.innerHTML='';speaking=null;let sel=0;
+  const pickIt=k=>{dCh.innerHTML='';sfx.pop();const line=fillName(opts[k]).replace(/\s*\(finish the chapter\)/,'');dText.textContent=line;dNext.hidden=false;let over=false;const end=()=>{if(over)return;over=true;dlg=null;closeSoon();res(k);};dlg={adv(){Voice.stop();end();}};if(Voice.on)Voice.speak(player,line,opts[k]).then(()=>setTimeout(end,250));else setTimeout(end,700+line.length*22);};
+  const btns=opts.map((o,k)=>{const b=document.createElement('button');b.type='button';b.className='choice';b.innerHTML='<span class="num">'+(k+1)+'</span><span>'+esc(fillName(o))+'</span>';b.onclick=e=>{e.stopPropagation();pickIt(k);};dCh.appendChild(b);return b;});
+  const hl=()=>btns.forEach((b,k)=>b.classList.toggle('sel',k===sel));hl();
+  const t0=performance.now();dlg={choice:true,n:btns.length,move(d){sel=(sel+d+btns.length)%btns.length;hl();},adv(){if(performance.now()-t0>450)pickIt(sel);},pick:pickIt};
+});}
+async function lines(arr){for(const l of arr)await say(l[0],l[1],l[2]);}
+async function guided(prompt,opts){while(true){const k=await choose(player,prompt,opts.map(o=>o.t));const o=opts[k];if(!o.good)sfx.soft();await lines(o.r||[]);if(o.good){if(o.star)star(o.star);return k;}}}
+dEl.addEventListener('click',()=>{if(dlg&&!dlg.choice)dlg.adv();});
+
+/* ---------------- HUD ---------------- */
+function setGoal(text,target){$('#goal').textContent=fillName(text);goalTarget=target||null;}
+let toastT=null;function toast(msg){const t=$('#toast');t.textContent=msg;t.hidden=false;t.style.animation='none';void t.offsetWidth;t.style.animation='';clearTimeout(toastT);toastT=setTimeout(()=>t.hidden=true,2600);}
+function star(msg){stars++;$('#stars').textContent=stars;toast('Kindness star! '+msg);sfx.chime();burst(player.x,player.y-40,24);}
+function burst(x,y,n){for(let i=0;i<n;i++){const a=Math.random()*Math.PI*2,v=40+Math.random()*90;sparks.push({x,y,vx:Math.cos(a)*v,vy:Math.sin(a)*v-40,life:1});}}
+function showCard(a,b){titleCard={a,b,t0:T};}
+function fadeTo(v){return new Promise(res=>{const s=fade,t0=performance.now();const step=()=>{const k=Math.min(1,(performance.now()-t0)/700);fade=s+(v-s)*k;k<1?requestAnimationFrame(step):res();};step();});}
+function walkTo(e,x,y,sp){return new Promise(res=>{e.goal={x,y,res};if(sp)e.speed=sp;});}
+async function run(fn){cut++;try{await fn();}catch(err){console.error(err);}finally{cut--;}}
+function busy(){return cut>0||!!dlg||mode!=='play';}
+
+/* ---------------- interaction ---------------- */
+function interactables(){const out=[];npcs.forEach(n=>{if(n.talk&&!n.hidden)out.push({e:n,r:72,label:n.label||('Talk to '+n.name),fn:n.talk});});groups.forEach(g=>out.push({e:g,r:100,label:player.carry==='food'&&!g.fed?'Give food':'Talk',fn:g.talk}));items.forEach(it=>{if(it.onAct&&it.active!==false)out.push({e:it,r:it.r||64,label:it.label,fn:it.onAct});});return out;}
+function nearest(){let best=null,bd=1e9;for(const o of interactables()){const d0=dist(player,o.e);if(d0>=o.r)continue;const d=d0-(o.e.marker||o.e===goalTarget?35:0);if(d<bd){bd=d;best=o;}}return best;}
+function action(){if(!$('#journal').hidden){closeJournal();return;}if(dlg){dlg.adv();return;}if(busy())return;const t=nearest();if(t){player.tap=null;run(t.fn);}}
+
+/* ---------------- level 1 ---------------- */
+function buildL1(){
+  W=2400;H=1420;sl=x=>380+40*Math.sin(x/300)+16*Math.sin(x/97+1);
+  const path=[[330,1420],[420,1170],[560,970],[690,790],[820,630]];for(let x=930;x<=2400;x+=100)path.push([x,sl(x)+90]);
+  bg=bg1(W,H,sl,path);props=[];npcs=[];items=[];groups=[];prints=[];sparks=[];
+  const H1=addProp(house(1,'#7a5a3a','#3f6f8f'),230,1270,100,190,{w:160,h:92});
+  addProp(house(2,'#6b4a2e','#a8433a'),690,1330,100,190,{w:160,h:92});
+  addProp(house(3,'#3f6f9f',null),130,1010,100,190,{w:160,h:92});
+  addProp(house(4,'#6b4a2e','#6a8f3a'),900,1190,100,190,{w:160,h:92});
+  addProp(house(5,'#7a5a3a',null),1130,1390,100,190,{w:160,h:92});
+  addProp(well(),610,1060,60,92,{r:46});
+  addProp(stall(),330,930,95,152,{w:160,h:40});
+  addProp(rack(),560,700,65,102,{w:110,h:20});
+  [[1000,900],[1260,1110],[1500,870],[1740,1090],[1990,890],[2250,1150],[1400,1360],[1880,1340],[200,730],[430,720],[2280,720],[1640,700],[60,1380]].forEach((p,i)=>addProp(tree(40+i,'olive'),p[0],p[1],85,172,{r:20}));
+  [[1190,620],[1960,650],[320,590]].forEach((p,i)=>addProp(palm(70+i),p[0],p[1],70,203,{r:14}));
+  [[1420,620],[2160,640],[880,720],[2340,1000]].forEach((p,i)=>{const s=.7+i%2*.3;addProp(rock(90+i,s),p[0],p[1],60*s,72*s,{r:36*s});});
+  [[760,990],[1120,1000],[1600,1250],[2100,1250]].forEach((p,i)=>addProp(bush(110+i),p[0],p[1],40,54,null));
+  const bp=addProp(boat(),1060,sl(1060)-26,125,62,null,{bob:1,ph:0});
+  const bz=addProp(boat(),1560,sl(1560)-40,125,62,null,{bob:1,ph:2});
+  waves=[];const R=rng(7);for(let i=0;i<340;i++){const x=R()*W,y=10+R()*(sl(x)-30);waves.push({x,y,ph:R()*6});}
+  birds=[];for(let i=0;i<6;i++)birds.push({x:R()*W,y:60+R()*220,v:30+R()*30,ph:R()*6});
+
+  const mother=npc({name:'Mother',vid:'mother',x:330,y:1310,look:Object.assign({},looks.mother,{skin:SKINS[pick.skin]})});
+  const seller=npc({name:'Martha the fruit seller',vid:'martha',x:340,y:985,look:looks.seller});
+  const eli=npc({name:'Eli',vid:'eli',x:780,y:900,look:looks.eli});
+  const tobiah=npc({name:'Old Tobiah',vid:'tobiah',x:665,y:1100,look:looks.tobiah,speed:80});
+  const peter=npc({name:'Simon Peter',vid:'peter',x:990,y:sl(990)+48,look:looks.peter,dir:'up',facePlayer:false});
+  const andrew=npc({name:'Andrew',vid:'andrew',x:1090,y:sl(1090)+52,look:looks.andrew,dir:'up',facePlayer:false});
+  npc({name:'James',vid:'james',x:1520,y:sl(1560)-16,look:looks.james,seated:true,on:bz,facePlayer:false});
+  npc({name:'John',vid:'john',x:1600,y:sl(1560)-16,look:looks.john,seated:true,on:bz,facePlayer:false});
+  npc({name:'Zebedee',vid:'zeb',x:1560,y:sl(1560)-12,look:looks.zeb,seated:true,on:bz,facePlayer:false});
+  const jesus=npc({name:'Jesus',vid:'jesus',x:790,y:sl(790)+100,look:JESUS_LOOK,isJesus:true,speed:100});
+  Object.assign(player,{x:330,y:1365,dir:'up',carry:null,look:playerLook(),goal:null,tap:null});
+  const S={stage:0,met:false,asked:false,skipped:false,jar:false,helped:false,toldJesus:false,called:false,lead:false,wp:0,nag:0,bub:0};
+  const jarDoor={x:130,y:1030,label:'Put down the jar',active:false,r:70};
+  items.push(jarDoor);
+  const WP=[];for(let x=1060;x<=2330;x+=120)WP.push({x,y:sl(x)+92});WP[5].stop=birdsTalk;
+
+  mother.talk=async()=>{
+    if(S.stage>0)return say(mother,'Go on, {name}! Jesus is down by the lake. The path starts past the well.');
+    await say(mother,'Good morning, {name}! Have you heard? Jesus, the teacher from Nazareth, is here in Capernaum!');
+    await say(mother,'He went to Simon Peter\'s house and healed his mother-in-law. Her fever left her, and she got up and served everyone dinner!','Mark 1:30–31');
+    await say(mother,'People say He is down by the lake this morning. Go and see Him! Follow the path past the well.');
+    S.stage=1;setGoal('Go down to the lake and find Jesus',jesus);
+  };
+  seller.talk=async()=>{await say(seller,'Fresh figs! Sweet pomegranates! Oh, hello {name}.');await say(seller,'Last Sabbath Jesus taught in our synagogue. Everyone was amazed. He teaches like someone who has real authority!','Mark 1:21–22');};
+  eli.talk=async()=>{await say(eli,'Are you going to see Jesus too? My father says crowds follow Him everywhere!');await say(eli,'I heard He makes sick people well, just by touching them. I want to see Him!');};
+  peter.talk=async()=>{if(S.called)return say(peter,'Can you believe it? We\'re following the Teacher!');await say(peter,'Ho there, {name}! We\'ve been casting nets all morning.');await say(andrew,'Have you seen the Teacher? He\'s walking along the shore, just over there.');};
+  andrew.talk=peter.talk;
+  tobiah.talk=async()=>{
+    if(S.helped)return say(tobiah,'Bless you, child. Go on and find the teacher!');
+    if(S.jar)return say(tobiah,'My house is the one with the blue door, just up the path.');
+    if(S.toldJesus){await say(tobiah,'Child, you came back! Could you really help me carry this heavy jar home?');return startJar();}
+    if(!S.asked){S.asked=true;return tobiahAsk();}
+    await say(tobiah,'Have you changed your mind, child? The jar is still here, and my back still aches.');
+    const k=await choose(player,'Will you help Tobiah?',['Yes, I\'ll carry it for you!','Not right now.']);if(k===0)await startJar();
+  };
+  async function tobiahAsk(){
+    await say(tobiah,'Child! Over here! Oh, my poor old back...');
+    await say(tobiah,'Could you help me carry this water jar home? My house has the blue door. The jar is so heavy for me.');
+    const i=await choose(player,'What will you do?',['Sure! I\'ll carry it for you.','Sorry, I\'m in a hurry to see Jesus.']);
+    if(i===0)await startJar();else{await say(tobiah,'Oh... all right. Go on, child. I will manage somehow.');S.skipped=true;}
+  }
+  async function startJar(){await say(tobiah,'Bless you! Here, carry it carefully. I\'ll walk behind you.');player.carry='jar';S.jar=true;tobiah.follow=player;tobiah.fd=50;jarDoor.active=true;setGoal('Carry the water jar to Tobiah\'s house with the blue door',jarDoor);}
+  jarDoor.onAct=async()=>{
+    player.carry=null;S.jar=false;S.helped=true;jarDoor.active=false;tobiah.follow=null;tobiah.goal=null;
+    items.push({x:110,y:1028,draw:(c,it)=>drawJar(c,it.x,it.y,1)});
+    tobiah.dir='down';await say(tobiah,'Thank you, child! You have a kind heart.');
+    await say(tobiah,'The Lord bless you and keep you!','Numbers 6:24');
+    star('You helped Tobiah carry his water');
+    if(S.toldJesus){jesus.marker='!';setGoal('Go back to Jesus by the lake',jesus);}else if(S.stage>0)setGoal('Go down to the lake and find Jesus',jesus);else setGoal('Talk to your mother',mother);
+  };
+  jesus.talk=async()=>{
+    if(!S.met)return meet();
+    if(S.toldJesus&&!S.helped)return say(jesus,'Tobiah is waiting by the well, {name}. Go and help him. I\'ll be right here.');
+    if(S.helped&&!S.called)return afterHelp();
+    return say(jesus,'Stay close to me, {name}.');
+  };
+  async function meet(){
+    S.met=true;S.stage=Math.max(S.stage,1);S.asked=true;jesus.facePlayer=true;
+    await say(jesus,'Hello, {name}! I\'m so glad you came.');
+    const done=new Set();
+    while(true){
+      const opts=[['Who are you?','who'],['How do you know my name?','name'],['Can I come with you?','come']].filter(o=>!done.has(o[1]));
+      const i=await choose(player,'What do you want to say to Jesus?',opts.map(o=>o[0]));const k=opts[i][1];done.add(k);
+      if(k==='who'){await say(jesus,'I am Jesus, from Nazareth. I have come to tell everyone the good news.');await say(jesus,'The time has come. The kingdom of God has come near. Turn back to God and believe the good news!','Mark 1:15');}
+      if(k==='name'){await say(jesus,'I am the good shepherd. I know my sheep, and my sheep know me.','John 10:14');await say(jesus,'I know you, {name}, and I love you very much.');}
+      if(k==='come'){await say(jesus,'Come, and you will see!','John 1:39');break;}
+    }
+    if(S.helped)return afterHelp();
+    if(S.skipped){
+      await say(jesus,'But first, tell me... did you pass anyone who needed help on your way here?');
+      await guided('What will you tell Jesus?',[
+        {t:'No, nobody.',r:[[jesus,'Think again, {name}. Wasn\'t there an old man at the well, asking for help?']]},
+        {t:'An old man asked me to carry his water. I said no because I was in a hurry.',good:true,star:'You told Jesus the truth',r:[[jesus,'Thank you for telling me the truth, {name}. That was brave.'],[jesus,'Following me means loving God, and loving the people around you too.'],[jesus,'Go back and help Tobiah. I will wait right here for you.']]}
+      ]);
+    }else{
+      await say(jesus,'Before we go, {name}... old Tobiah at the well needs a helper today. His jar is too heavy for him.');
+      await guided('What will you say?',[
+        {t:'But I want to stay here with you!',r:[[jesus,'I love that you want to be with me. But when you help someone in need, it is like you are helping me.'],[jesus,'Will you go and help him?']]},
+        {t:'Yes, Jesus! I\'ll go and help him.',good:true,star:'You said yes to helping',r:[[jesus,'Good! Go and help Tobiah. I will wait right here for you.']]}
+      ]);
+    }
+    S.toldJesus=true;tobiah.marker='!';setGoal('Go back to the well and help Tobiah',tobiah);
+  }
+  async function afterHelp(){
+    S.called=true;jesus.marker=null;
+    await say(jesus,'You helped Tobiah carry his heavy jar. I saw it, and it made me glad.');
+    await say(jesus,'Whatever you did for one of the least of these brothers and sisters of mine, you did for me.','Matthew 25:40');
+    setGoal('Watch what Jesus does',null);camT=jesus;
+    await say(jesus,'Now come with me. I want to talk to those two fishermen.');
+    jesus.facePlayer=false;
+    await Promise.all([walkTo(jesus,960,sl(960)+100,110),walkTo(player,880,sl(880)+112,140)]);
+    jesus.dir='right';peter.dir='left';andrew.dir='left';
+    await say(peter,'Teacher! We\'ve been casting our nets all morning.');
+    await say(jesus,'Simon! Andrew! Come, follow me, and I will send you out to fish for people.','Matthew 4:19');
+    await say(narr,'At once they left their nets and followed Him.','Matthew 4:20');
+    await say(andrew,'Let\'s go, Simon! Leave the nets!');
+    peter.follow=jesus;peter.fd=70;andrew.follow=peter;andrew.fd=55;peter.facePlayer=andrew.facePlayer=false;
+    jesus.dir='left';
+    await say(jesus,'And you, {name}? Will you follow me too?');
+    await guided('What will you say?',[
+      {t:'Maybe later. I want to go and play first.',r:[[jesus,'I will always be patient with you, {name}. But the best adventure in the world is walking with me.'],[jesus,'Peter and Andrew came right away. What about you?']]},
+      {t:'Yes, Jesus! I will follow you.',good:true,star:'You chose to follow Jesus',r:[[jesus,'Then stay close to me. We\'ll walk along the shore. Follow my footsteps!']]}
+    ]);
+    camT=null;S.lead=true;S.wp=0;Music.play('lake');setGoal('Follow Jesus along the shore. Walk in His footsteps!',jesus);
+  }
+  async function birdsTalk(){
+    jesus.goal=null;jesus.dir='up';
+    await say(jesus,'{name}, look up! Do you see the birds over the lake?');
+    await say(jesus,'Look at the birds of the air. They do not sow or reap or store away in barns, and yet your heavenly Father feeds them. Are you not much more valuable than they?','Matthew 6:26');
+    await guided('What do you think Jesus means?',[
+      {t:'Birds are more important than people.',r:[[jesus,'Listen again, {name}. God loves the birds, but you are much more precious to Him.']]},
+      {t:'God takes care of the birds, so He will take care of me too!',good:true,star:'You listened carefully to Jesus',r:[[jesus,'Yes! Your Father in heaven knows what you need. You don\'t have to worry.']]}
+    ]);
+  }
+  async function endL1(){
+    jesus.dir='right';
+    await say(jesus,'Look, the hillside up ahead! Many people are waiting for us there. Come!');
+    await fadeTo(1);loadLevel(1);
+  }
+  LV={
+    start:async()=>{Music.play('village');showCard('Chapter 1','Come, Follow Me');await wait(1700);
+      await say(narr,'You live in Capernaum, a fishing town beside the Sea of Galilee.');
+      await say(narr,isTouch?'Use the arrow pad (or tap the ground) to walk. Tap the A button when you are next to someone to talk.':'Use the arrow keys to walk, or click where you want to go. Press Space when you are next to someone to talk.');
+      setGoal('Talk to your mother',mother);},
+    tick(dt){
+      if(cut===0&&!dlg&&S.stage>=1&&!S.asked&&dist(player,tobiah)<170){S.asked=true;run(tobiahAsk);}
+      if(T>S.bub&&!S.called){S.bub=T+7;peter.bubble={text:'Cast the net, Andrew!',until:T+2.5};}
+      if(S.lead&&cut===0)leadTick();
+    }
+  };
+  function leadTick(){
+    const d=dist(player,jesus);
+    if(!prints.length||Math.hypot(prints[prints.length-1].x-jesus.x,prints[prints.length-1].y-jesus.y)>30)if(jesus.moving)prints.push({x:jesus.x,y:jesus.y,t0:T,s:prints.length%2});
+    if(d>230){jesus.goal=null;jesus.moving=false;jesus.dir=player.x<jesus.x?'left':'right';if(T>S.nag){jesus.bubble={text:'Stay close, '+player.name+'!',until:T+2.4};S.nag=T+5;}return;}
+    if(!jesus.goal){const p=WP[S.wp];if(!p){S.lead=false;run(endL1);return;}
+      if(p.stop&&!p.done){p.done=true;run(p.stop);return;}
+      jesus.goal={x:p.x,y:p.y,res:()=>{S.wp++;}};jesus.speed=95;}
+  }
+}
+
+/* ---------------- level 2 ---------------- */
+function buildL2(){
+  W=2400;H=1500;sl=x=>130+25*Math.sin(x/240);
+  const path=[[0,1130],[300,1070],[600,920],[860,720],[1080,600]];
+  const spots=[[700,820],[960,910],[1360,860],[1620,700],[800,1170],[1160,1220],[1520,1120],[2150,1310]];
+  bg=bg2(W,H,sl,path,spots);props=[];npcs=[];items=[];groups=[];prints=[];sparks=[];
+  [[300,620],[480,420],[1820,420],[2040,720],[2290,1260],[420,1380],[1010,1460],[1900,1470],[180,880]].forEach((p,i)=>addProp(tree(200+i,i%3?'green':'olive'),p[0],p[1],85,172,{r:20}));
+  addProp(rock(300,1.6),1900,975,96,115,{r:70});
+  [[620,610],[1320,1410],[2250,520],[90,1400]].forEach((p,i)=>addProp(rock(310+i,.8),p[0],p[1],48,58,{r:30}));
+  [[520,1000],[1250,700],[1800,1250],[2050,1000],[700,1400]].forEach((p,i)=>addProp(bush(330+i),p[0],p[1],40,54,null));
+  waves=[];const R=rng(9);for(let i=0;i<160;i++){const x=R()*W,y=10+R()*(sl(x)-25);waves.push({x,y,ph:R()*6});}
+  birds=[];for(let i=0;i<5;i++)birds.push({x:R()*W,y:30+R()*120,v:30+R()*30,ph:R()*6});
+  const jesus=npc({name:'Jesus',vid:'jesus',x:1150,y:520,look:JESUS_LOOK,isJesus:true});
+  const philip=npc({name:'Philip',vid:'philip',x:1060,y:560,look:looks.philip});
+  const andrew=npc({name:'Andrew',vid:'andrew',x:1240,y:565,look:looks.andrew});
+  const peter=npc({name:'Simon Peter',vid:'peter',x:1200,y:460,look:looks.peter});
+  const boy=npc({name:'Boy with a lunch',vid:'boy',x:1830,y:1040,look:looks.boy,carry:'basket'});
+  const RR=rng(77);
+  const lines0=['I walked all the way from Bethsaida to hear Jesus!','Yesterday Jesus healed my leg. Look, I can walk again!','Shh... I want to hear what Jesus is teaching.','I\'m getting so hungry. It\'s late, and we\'re far from town.','My grandmother says Jesus might be the one God promised!','We came by boat, but the crowd ran around the lake faster than us!','Have you ever seen so many people in one place?','Our whole family came to see Jesus.'];
+  spots.forEach((s,i)=>{const n=i===7?2:(i===3?3:3+(i%2));const offs=[[-34,0],[0,-16],[34,2],[8,22]];const people=[];for(let k=0;k<n;k++){let look=crowdLook(RR);if(i===3)look=Object.assign(look,{robe:['#5b3a8a','#2c4f7c','#6d2a4a'][k],trim:'#e9c45a',fine:true,style:'wrap',wrap:'#f3e8c8',beard:true,size:1});people.push({dx:offs[k][0],dy:offs[k][1],look});}
+    if(i===7){people[0].look={skin:'#a87650',hair:'#3a2a1e',style:'wrap',wrap:'#bba98a',beard:true,robe:'#8f7d64',crutch:true};people[1].look={skin:'#a87650',hair:'#2a1c12',style:'long',band:'#c9b89a',robe:'#9c8d74',size:.8};}
+    groups.push({x:s[0],y:s[1],people,fed:false,asked:false,line:lines0[i],idx:i,name:i===3?'Matthias the merchant':i===7?'Gideon and his daughter':'A family'});});
+  const rich=groups[3],family=groups[7];
+  family.line='We sit over here, away from everyone. People don\'t like to sit near a lame man.';rich.line='We are important people from the city. We should have the best spot, of course.';
+  const heart=HEART;
+  const S={stage:0,asked:0,fed:0,richDone:false,mustFamily:false,crumbs:0};
+  Object.assign(player,{x:110,y:1120,dir:'right',carry:null,look:playerLook(),goal:null,tap:null});
+  const basket={x:1195,y:540,label:'Take food',active:false,r:80,draw:(c,it)=>{if(it.active){const g=c.createRadialGradient(it.x,it.y-12,2,it.x,it.y-12,40);g.addColorStop(0,'rgba(255,240,170,.7)');g.addColorStop(1,'rgba(255,240,170,0)');c.fillStyle=g;c.beginPath();c.arc(it.x,it.y-12,40,0,7);c.fill();drawBasket(c,it.x,it.y,1.3,true);}}};
+  items.push(basket);
+  const gSpeaker=g=>({name:g.name,look:g.people[g.idx===7?1:0].look,vid:g.idx===3?'merchant':g.idx===7?'gideon':((g.people[0].look.style==='scarf'||g.people[0].look.style==='long')?'crowdF':'crowdM')});
+
+  jesus.talk=async()=>{
+    if(S.stage===0)return problem();
+    if(S.stage===1)return say(jesus,'Go and see what food you can find, {name}. Ask the people.');
+    if(S.stage===2)return;
+    if(S.stage===4)return basket.onAct();
+    if(S.stage===5)return say(jesus,'Gather the pieces that are left over, {name}. Let nothing be wasted.');
+    if(S.stage===6)return finale();
+    return askJesus(jesus);
+  };
+  async function problem(){
+    jesus.marker=null;
+    await say(jesus,'{name}, you made it! Look at all these people. They have been with us all day.');
+    await say(jesus,'Philip, where shall we buy bread for these people to eat?','John 6:5');
+    await say(philip,'It would take more than half a year\'s wages to buy enough bread for each one to have a bite!','John 6:7');
+    await say(jesus,'And what do you think, {name}? What should we do?');
+    await guided('What should we do?',[
+      {t:'Send everyone home. There are too many people.',r:[[jesus,'My friends said that too. But I don\'t want to send them away hungry.'],[jesus,'Think again. What could we do?']]},
+      {t:'It\'s impossible. We can\'t do anything.',r:[[jesus,'With man this is impossible, but with God all things are possible.','Matthew 19:26'],[jesus,'So, what could we do?']]},
+      {t:'Let\'s find what food we have and bring it to you.',good:true,star:'You trusted Jesus',r:[[jesus,'Yes! Let\'s bring what we have.'],[jesus,'How many loaves do you have? Go and see.','Mark 6:38']]}
+    ]);
+    await say(andrew,'I\'ll come with you, {name}. Let\'s ask the people if anyone brought food!');
+    andrew.follow=player;andrew.fd=60;andrew.facePlayer=false;S.stage=1;
+    groups.forEach(g=>g.marker='?');setGoal('Ask the people in the crowd if anyone brought food',groups[0]);
+  }
+  groups.forEach(g=>{g.talk=async()=>{
+    const sp=gSpeaker(g);
+    if(S.stage===1){g.marker=null;if(g.asked)return say(sp,'Sorry, we really don\'t have anything.');g.asked=true;S.asked++;
+      if(S.asked===1){await say(sp,'Food? Sorry, we came in such a hurry that we didn\'t bring any!');setGoal('Keep asking. Someone must have food!',groups.find(x=>!x.asked));return;}
+      await say(sp,'Food? We don\'t have any... but I saw a boy with a little basket over by the big rock, near the trees.');boy.marker='!';setGoal('Find the boy by the big rock',boy);return;}
+    if(S.stage===4&&player.carry==='food'&&!g.fed){
+      if(S.mustFamily&&g!==family)return say(sp,'Thank you, but look! That family under the far olive tree has nothing at all. Please take it to them first.');
+      return feed(g);}
+    if(g.fed)return say(sp,['Thank you! It\'s delicious!','There\'s more than enough! How can this be?','Praise God! We\'re full!'][g.idx%3]);
+    if(S.stage===4)return say(sp,'We\'re so hungry... is there really enough for everyone?');
+    if(g===family&&S.stage>=1){await say(sp,g.line);return;}
+    await say(sp,g.line);
+  };});
+  boy.talk=async()=>{
+    if(S.stage<1)return say(boy,'Hi! I came to hear Jesus. My mother packed me a lunch!');
+    if(S.stage>1)return say(boy,'I hope Jesus likes my bread!');
+    boy.marker=null;
+    await say(boy,'Hi! Are you one of Jesus\' helpers?');
+    await say(boy,'I have five small barley loaves and two small fish. My mother packed them for me this morning.');
+    await guided('How will you ask him?',[
+      {t:'Give me that food! Jesus needs it.',r:[[heart,'Do to others as you would have them do to you.','Luke 6:31'],[narr,'Jesus would ask kindly. Try again.']]},
+      {t:'Jesus can do great things with what we give Him. Would you like to share your lunch with Him?',good:true,star:'You asked with kindness',r:[[boy,'It\'s not very much... but yes! I want to give it all to Jesus!']]},
+      {t:'Never mind. That\'s too little to help anyone.',r:[[heart,'With God all things are possible.','Matthew 19:26'],[narr,'Nothing is too small to give to God. Try again.']]}
+    ]);
+    boy.follow=player;boy.fd=50;boy.facePlayer=false;andrew.follow=boy;andrew.fd=48;S.stage=2;jesus.marker='!';setGoal('Bring the boy to Jesus',jesus);
+  };
+  async function blessing(){
+    jesus.marker=null;camT=jesus;Music.play('miracle');
+    await say(andrew,'Here is a boy with five small barley loaves and two small fish, but how far will they go among so many?','John 6:9');
+    await say(jesus,'Have the people sit down.','John 6:10');
+    await say(narr,'There was plenty of grass in that place, and about five thousand men sat down, and women and children too.','John 6:10');
+    boy.follow=null;await walkTo(boy,jesus.x-46,jesus.y+34,120);boy.carry=null;boy.dir='up';andrew.follow=null;
+    jesus.dir='up';jesus.wave=true;burst(jesus.x,jesus.y-90,40);sfx.chime();
+    await say(narr,'Jesus took the loaves, gave thanks to God, and shared them out. He did the same with the fish.','John 6:11');
+    jesus.wave=false;jesus.dir='down';basket.active=true;burst(basket.x,basket.y-20,30);
+    await say(jesus,'Thank you for sharing, young friend. Your small gift will feed thousands today.');
+    await say(boy,'Wow! Look! The basket is still full!');
+    await say(jesus,'{name}, come and help me. Take food from the basket and bring it to every family.');
+    camT=null;S.stage=4;Music.play('hill');setGoal('Take food from the basket by Jesus',basket);
+  }
+  basket.onAct=async()=>{
+    if(S.stage!==4)return;
+    if(player.carry==='food')return say(narr,'Your arms are full! Take this food to a family who hasn\'t eaten yet.');
+    player.carry='food';sfx.pop();
+    if(S.fed>=3&&!family.fed&&!S.richDone){S.richDone=true;
+      await say(gSpeaker(rich),'You there, child! Bring that food over here first. We are important people, and we want more!');
+      await guided('What will you do?',[
+        {t:'Yes, sir! Right away.',r:[[heart,'The Son of Man did not come to be served, but to serve.','Mark 10:45'],[narr,'Look around. Is there someone who has nothing at all yet? Jesus sees everyone.']]},
+        {t:'There\'s enough for everyone! But first I\'ll take this to the family who hasn\'t eaten at all.',good:true,star:'You thought of the one left out',r:[[gSpeaker(rich),'Hmph... well. I suppose that is fair.']]}
+      ]);
+      S.mustFamily=true;setGoal('Take the food to the family under the far olive tree',family);return;}
+    setGoal('Bring the food to a hungry family ('+S.fed+' of 8 fed)',S.mustFamily?family:null);
+  };
+  async function feed(g){
+    player.carry=null;g.fed=true;S.fed++;sfx.pop();burst(g.x,g.y-30,14);
+    const sp=gSpeaker(g);
+    if(g===family){S.mustFamily=false;const dtr={name:'Gideon\'s daughter',vid:'girl',look:g.people[1].look},gid={name:'Gideon',vid:'gideon',look:g.people[0].look};await say(dtr,'For us? Thank you! Nobody ever remembers us.');await say(gid,'God bless you, child. You saw us when no one else did.');}
+    else await say(sp,['Bread and fish! Thank you!','Thank you, child! God is good!','Where did all this food come from?','Thank you so much!'][g.idx%4]);
+    if(S.fed>=8)return allFed();
+    setGoal('Take more food from the basket ('+S.fed+' of 8 fed)',basket);
+  }
+  async function allFed(){
+    await say(narr,'Everyone ate as much as they wanted, and they were all full.','John 6:11–12');
+    await say(jesus,'Gather the pieces that are left over. Let nothing be wasted.','John 6:12');
+    S.stage=5;const R2=rng(31);
+    groups.forEach(g=>{for(let k=0;k<(g.idx<4?2:1);k++){const a=R2()*Math.PI*2;items.push({x:g.x+Math.cos(a)*90,y:g.y+40+Math.sin(a)*40,crumb:true,draw:(c,it)=>{const p=.5+.5*Math.sin(T*4+it.x);c.fillStyle='rgba(255,240,170,'+(.25+p*.25)+')';c.beginPath();c.arc(it.x,it.y-4,18,0,7);c.fill();drawBread(c,it.x-3,it.y-4,.8);drawBread(c,it.x+5,it.y-1,.6);}});}});
+    setGoal('Gather the leftover pieces (0 of 12)',null);
+  }
+  function crumbTick(){for(let i=items.length-1;i>=0;i--){const it=items[i];if(it.crumb&&Math.hypot(player.x-it.x,player.y-it.y)<40){items.splice(i,1);S.crumbs++;sfx.pop();burst(it.x,it.y-10,10);
+    const a=Math.PI*(1.15+S.crumbs*0.065);props.push({img:baskets12img,x:jesus.x+Math.cos(a)*120,y:jesus.y+40+Math.sin(a)*-50+40,ax:30,ay:36});
+    setGoal('Gather the leftover pieces ('+S.crumbs+' of 12)',null);
+    if(S.crumbs>=12){S.stage=6;run(async()=>{await say(narr,'They filled twelve baskets with the pieces of the five barley loaves that were left over!','John 6:13');jesus.marker='!';setGoal('Talk to Jesus',jesus);});}}}}
+  async function finale(){
+    jesus.marker=null;S.stage=7;Music.play('end');
+    await say(jesus,'Look, {name}! A boy shared his little lunch, and God fed thousands of people, with twelve baskets left over.');
+    await say(jesus,'I am the bread of life. Whoever comes to me will never go hungry.','John 6:35');
+    await say(jesus,'Thank you for serving with me today. You listened, you chose kindness, and you followed me.');
+    await askJesus(jesus);
+    endChapter();
+  }
+  LV={
+    start:async()=>{Music.play('hill');fade=1;showCard('Chapter 2','Five Loaves and Two Fish');await fadeTo(0);await wait(900);
+      await say(narr,'You followed Jesus all the way along the shore to a grassy hillside. Look how many people came!');
+      await say(narr,'A great crowd of people followed Him because they saw the signs He performed by healing the sick.','John 6:2');
+      jesus.marker='!';setGoal('Climb the hill and talk to Jesus',jesus);},
+    tick(){
+      if(S.stage===2&&cut===0&&!dlg&&dist(player,jesus)<130){S.stage=3;run(blessing);}
+      if(S.stage===5)crumbTick();
+      groups.forEach(g=>{g.marker2=S.stage===4&&player.carry==='food'&&!g.fed;});
+    }
+  };
+}
+/* ================= chapter 3: the storm ================= */
+function boatDeck(){return mk(1160,460,c=>{
+  ell(c,580,250,566,206,'rgba(5,20,35,.35)');
+  ell(c,580,230,560,200,'#5e3a1e');ell(c,580,222,540,186,'#7a4f2e');ell(c,580,222,505,165,'#a87a4a');
+  c.save();c.beginPath();c.ellipse(580,222,505,165,0,0,7);c.clip();
+  for(let y=50;y<400;y+=18){c.fillStyle=(Math.floor(y/18)%2)?'#9c6f41':'#b08352';c.fillRect(0,y,1160,17);c.fillStyle='rgba(60,35,15,.35)';c.fillRect(0,y+16,1160,2);}
+  [330,580,830].forEach(x=>{c.fillStyle='#6e4a2a';c.fillRect(x-14,40,28,370);c.fillStyle='#8a6038';c.fillRect(x-14,40,28,6);});
+  c.restore();
+  ell(c,150,222,95,125,'#8a6038');ell(c,150,222,80,108,'#9c6f41');
+  c.fillStyle='#b3412f';rr(c,105,206,84,40,14);c.fill();c.fillStyle='#d9614a';rr(c,111,210,72,14,7);c.fill();
+  c.strokeStyle='#d6c08a';c.lineWidth=4;for(let r=6;r<26;r+=5){c.beginPath();c.arc(980,150,r,0,7);c.stroke();}
+  c.strokeStyle='rgba(214,192,138,.85)';c.lineWidth=1.3;for(let i=0;i<10;i++){c.beginPath();c.moveTo(880+i*10,290);c.lineTo(900+i*10,340);c.stroke();c.beginPath();c.moveTo(900+i*10,290);c.lineTo(880+i*10,340);c.stroke();}
+  c.fillStyle='#6e4a2a';[[420,40],[740,40],[420,404],[740,404]].forEach(([x,y])=>{c.save();c.translate(x,y);c.rotate(y<200?-.25:.25);c.fillRect(-4,-44,8,88);ell(c,0,y<200?-52:52,10,18,'#8a6038');c.restore();});
+  drawJar(c,1010,260,1);drawBasket(c,1040,330,1,false);
+});}
+function mastImg(){return mk(140,340,c=>{ell(c,70,330,22,7,'rgba(0,0,0,.25)');c.fillStyle='#5a3a1e';c.fillRect(64,20,12,312);c.fillStyle='#6e4a2a';c.fillRect(10,44,120,8);c.fillStyle='#efe6d2';c.beginPath();c.moveTo(12,52);c.quadraticCurveTo(70,74,128,52);c.lineTo(128,64);c.quadraticCurveTo(70,88,12,64);c.closePath();c.fill();c.strokeStyle='#c9b48a';c.lineWidth=1.5;c.beginPath();c.moveTo(70,22);c.lineTo(10,320);c.moveTo(70,22);c.lineTo(130,320);c.stroke();});}
+function buildL3(){
+  W=1600;H=1000;sl=()=>-500;
+  bg=mk(W,H,c=>{const g=c.createLinearGradient(0,0,0,H);g.addColorStop(0,'#1d5a86');g.addColorStop(1,'#246b99');c.fillStyle=g;c.fillRect(0,0,W,H);const R=rng(41);for(let i=0;i<900;i++){c.fillStyle=R()<.5?'rgba(255,255,255,.05)':'rgba(0,20,40,.09)';c.beginPath();c.ellipse(R()*W,R()*H,20+R()*40,3+R()*3,0,0,7);c.fill();}});
+  props=[];npcs=[];items=[];groups=[];prints=[];sparks=[];
+  ground={img:boatDeck(),x:220,y:270};
+  addProp(mastImg(),800,505,70,330,{r:26});
+  walkFn=(x,y)=>((x-800)/490)**2+((y-492)/148)**2<1;
+  waves=[];const R=rng(5);for(let i=0;i<420;i++)waves.push({x:R()*W,y:R()*H,ph:R()*6});
+  birds=[];for(let i=0;i<3;i++)birds.push({x:R()*W,y:60+R()*140,v:30+R()*20,ph:R()*6});
+  const jesus=npc({name:'Jesus',vid:'jesus',x:620,y:520,look:JESUS_LOOK,isJesus:true});
+  const peter=npc({name:'Simon Peter',vid:'peter',x:930,y:420,look:looks.peter});
+  const andrew=npc({name:'Andrew',vid:'andrew',x:1060,y:575,look:looks.andrew});
+  const john=npc({name:'John',vid:'john',x:1140,y:450,look:looks.john});
+  npc({name:'James',vid:'james',x:690,y:590,look:looks.james,seated:true});
+  Object.assign(player,{x:1000,y:500,dir:'left',carry:null,look:playerLook(),goal:null,tap:null});
+  const S={phase:'evening',talked:new Set(),scoops:0,spawnT:0,storm:0,flash:0,asked:false,wake:false,zz:0,bub:0,done:false};
+  function spawnPuddle(){let x,y;do{x=800+(Math.random()*2-1)*430;y=492+(Math.random()*2-1)*120;}while(((x-800)/430)**2+((y-492)/125)**2>1||Math.hypot(x-370,y-505)<80||Math.hypot(x-800,y-505)<50);
+    items.push({puddle:true,x,y,r:58,label:'Scoop the water',active:true,s:.6+Math.random()*.5,draw:(c,it)=>{const p=Math.sin(T*3+it.x);ell(c,it.x,it.y,34*it.s,13*it.s,'rgba(70,140,185,.75)');ell(c,it.x-6,it.y-2,20*it.s,6*it.s,'rgba(190,230,250,'+(.35+.2*p)+')');},onAct:scoop});}
+  async function scoop(){
+    const it=items.find(i=>i.puddle&&Math.hypot(i.x-player.x,i.y-player.y)<70);if(!it)return;
+    items.splice(items.indexOf(it),1);S.scoops++;sfx.splash();burst(it.x,it.y-10,8);
+    if(!S.asked)setGoal('Scoop the water out of the boat ('+Math.min(6,S.scoops)+' of 6)',null);
+    if(S.scoops>=6&&!S.asked){S.asked=true;
+      await say(andrew,'It\'s no use! The water keeps coming in faster than we can bail!');
+      await say(peter,'We\'re going to sink! What do we do?');
+      await guided('What should you do?',[
+        {t:'Keep bailing. We can do it by ourselves!',r:[[HEART,'Come to me, all you who are weary and burdened, and I will give you rest.','Matthew 11:28'],[narr,'You can\'t beat this storm alone. Who is in the boat with you?']]},
+        {t:'Jump into the water and swim away!',r:[[narr,'That would be very dangerous! Think about who is in the boat with you.']]},
+        {t:'Wake up Jesus and ask Him for help!',good:true,star:'You went to Jesus for help',r:[[peter,'Yes! Let\'s wake the Teacher!']]}
+      ]);
+      S.wake=true;player.carry=null;setGoal('Wake Jesus at the back of the boat',jesus);
+    }
+  }
+  function check(){if(S.talked.size>=2&&S.phase==='evening'&&!S.started){S.started=true;setTimeout(()=>run(stormStart),1500);}}
+  peter.talk=async()=>{
+    if(S.phase==='evening'){await say(peter,'Isn\'t the lake beautiful at sunset, {name}? I\'ve been fishing here my whole life.');await say(peter,'But be careful. Storms can come rushing down from the hills very fast.');S.talked.add('p');check();return;}
+    if(S.phase==='storm')return say(peter,S.wake?'Hurry! Wake the Teacher!':'Keep bailing, {name}! Scoop the water out!');
+    return say(peter,'I have never seen anything like that. The wind and the waves obeyed Him!');
+  };
+  john.talk=async()=>{
+    if(S.phase==='evening'){await say(john,'Look, Jesus is fast asleep on the cushion. He must be so tired after teaching all day.');await say(john,'I love being with Him. He\'s the best friend I\'ve ever had.');S.talked.add('j');check();return;}
+    if(S.phase==='storm')return say(john,'Hold on tight, {name}!');
+    return say(john,'Who is this? Even the wind and the waves obey Him!','Mark 4:41');
+  };
+  andrew.talk=async()=>{
+    if(S.phase==='evening')return say(andrew,'Do you see the lights of the towns on the shore? We\'ll be on the other side by morning.');
+    if(S.phase==='storm')return say(andrew,'The waves are so big!');
+    return say(andrew,'Look at all the stars, {name}. It\'s so peaceful now.');
+  };
+  async function stormStart(){
+    S.phase='storm';Music.play('storm');sfx.thunder();S.flash=.9;await wait(1300);
+    await say(narr,'Suddenly a furious storm came up. The waves broke over the boat, so that it was nearly swamped.','Mark 4:37');
+    await say(peter,'Grab a bucket, {name}! Bail out the water, quickly!');
+    player.carry='bucket';S.bailing=true;for(let i=0;i<3;i++)spawnPuddle();
+    setGoal('Scoop the water out of the boat (0 of 6)',null);
+  }
+  jesus.talk=async()=>{
+    if(S.phase==='evening')return say(jesus,'Let me rest a little, {name}. Go and talk with my friends.');
+    if(S.phase==='storm'&&!S.wake)return;
+    if(S.phase==='storm'&&S.wake)return calmStorm();
+    return say(jesus,'I am right here with you, {name}. Always.');
+  };
+  async function calmStorm(){
+    S.wake=false;jesus.marker=null;camT=jesus;
+    await say(peter,'Teacher, don\'t you care if we drown?','Mark 4:38');
+    jesus.sleep=false;jesus.seated=false;jesus.dir='right';await wait(500);
+    jesus.wave=true;
+    await say(jesus,'Quiet! Be still!','Mark 4:39');
+    S.phase='calm';S.bailing=false;items=items.filter(i=>!i.puddle);burst(jesus.x,jesus.y-80,50);sfx.chime();Music.play('miracle');
+    await wait(1800);jesus.wave=false;
+    await say(narr,'Then the wind died down, and it was completely calm.','Mark 4:39');
+    await say(jesus,'Why are you so afraid? Do you still have no faith?','Mark 4:40');
+    await say(john,'Who is this? Even the wind and the waves obey Him!','Mark 4:41');
+    camT=null;jesus.dir='right';
+    await say(jesus,'{name}, were you scared too?');
+    const k=await choose(player,'What will you say?',['Yes, I was really scared.','A little bit... but I knew you were here.']);
+    if(k===0)await say(jesus,'It is okay to feel afraid, {name}. When you are scared, you can always come to me.');
+    else await say(jesus,'I am glad you remembered. I am with you, even in the middle of a storm.');
+    await say(jesus,'So next time you feel afraid, what will you do?');
+    await guided('What will you do when you are scared?',[
+      {t:'Hide, and not tell anyone.',r:[[jesus,'You never have to face your fears alone, {name}. Think again.']]},
+      {t:'Pray, and trust Jesus to help me.',good:true,star:'You chose to trust Jesus',r:[[jesus,'Yes! Peace I leave with you; my peace I give you. Do not let your hearts be troubled and do not be afraid.','John 14:27']]}
+    ]);
+    await say(narr,'The boat sailed on quietly under the stars, all the way to the other side of the lake.');
+    endChapter();
+  }
+  LV={
+    rock:()=>S.storm*Math.sin(T*1.3)*0.035,
+    waveAmp:()=>1+S.storm*2.2,
+    screen(c){
+      if(S.phase==='evening'){c.fillStyle='rgba(255,130,50,.14)';c.fillRect(0,0,VW,VH);}
+      if(S.storm>0){c.fillStyle='rgba(8,16,30,'+(.5*S.storm)+')';c.fillRect(0,0,VW,VH);c.strokeStyle='rgba(200,220,255,'+(.5*S.storm)+')';c.lineWidth=1.5;c.beginPath();for(let i=0;i<150;i++){const x=((i*97+T*700)%(VW+200))-100,y=((i*61+T*1300+i*i*3)%(VH+100))-50;c.moveTo(x,y);c.lineTo(x-9,y+24);}c.stroke();}
+      if(S.flash>0){c.fillStyle='rgba(235,240,255,'+S.flash+')';c.fillRect(0,0,VW,VH);}
+      if(S.phase==='calm'){const k=1-S.storm;c.fillStyle='rgba(10,20,60,'+(.36*k)+')';c.fillRect(0,0,VW,VH);for(let i=0;i<70;i++){const x=(i*157)%VW,y=(i*89)%(VH*.55);c.fillStyle='rgba(255,255,230,'+(k*(.35+.35*Math.sin(T*2+i)))+')';c.fillRect(x,y,2,2);}const g=c.createRadialGradient(VW-90,70,10,VW-90,70,70);g.addColorStop(0,'rgba(255,248,215,'+(.9*k)+')');g.addColorStop(.35,'rgba(255,248,215,'+(.25*k)+')');g.addColorStop(1,'rgba(255,248,215,0)');c.fillStyle=g;c.fillRect(VW-170,0,170,150);}
+    },
+    tint:'rgba(0,0,0,0)',
+    start:async()=>{Music.play('lake');showCard('Chapter 3','The Storm on the Lake');await wait(1700);
+      await say(narr,'That evening, after a long day of teaching by the lake, Jesus spoke to His disciples.');
+      await say(jesus,'Let us go over to the other side.','Mark 4:35');
+      await say(narr,'So they left the crowd behind and set out across the lake in the boat. You came too!');
+      await say(jesus,'I\'m very tired, {name}. I am going to rest for a while.');
+      await walkTo(jesus,372,512,90);jesus.seated=true;jesus.sleep=true;jesus.dir='down';
+      setGoal('Talk to Peter and John on the boat',peter);
+    },
+    tick(dt){
+      if(S.phase==='storm'){S.storm=Math.min(1,S.storm+dt*.5);if(Math.random()<dt*.22){S.flash=.75;sfx.thunder();}}
+      else if(S.storm>0)S.storm=Math.max(0,S.storm-dt*.35);
+      S.flash=Math.max(0,S.flash-dt*2.2);
+      if(S.bailing&&cut===0&&!dlg){S.spawnT-=dt;if(S.spawnT<=0&&items.filter(i=>i.puddle).length<9){S.spawnT=S.asked?1.1:1.7;spawnPuddle();}}
+      if(jesus.sleep&&T>S.zz){S.zz=T+3;jesus.bubble={text:'Zzz...',until:T+1.6};}
+      if(S.phase==='storm'&&T>S.bub){S.bub=T+4;const who=[peter,andrew,john][Math.floor(Math.random()*3)];who.bubble={text:['Hold on!','The waves!','Help!','Bail faster!'][Math.floor(Math.random()*4)],until:T+1.8};}
+      if(S.phase==='evening'&&goalTarget===peter&&S.talked.has('p'))setGoal('Talk to John too',john);
+      if(S.phase==='evening'&&goalTarget===john&&S.talked.has('j')&&!S.talked.has('p'))setGoal('Talk to Peter too',peter);
+    }
+  };
+}
+
+/* ================= chapter 4: Zacchaeus ================= */
+function sycamore(){return mk(360,330,c=>{const R=rng(88);ell(c,180,320,120,18,'rgba(30,25,10,.25)');
+  c.fillStyle='#7a6a4a';c.beginPath();c.moveTo(150,322);c.bezierCurveTo(140,260,160,220,150,170);c.lineTo(210,170);c.bezierCurveTo(200,220,222,260,214,322);c.closePath();c.fill();
+  c.strokeStyle='#7a6a4a';c.lineWidth=14;c.lineCap='round';c.beginPath();c.moveTo(165,190);c.lineTo(90,140);c.moveTo(200,190);c.lineTo(280,130);c.moveTo(182,180);c.lineTo(180,110);c.stroke();
+  c.lineWidth=8;c.beginPath();c.moveTo(90,140);c.lineTo(60,150);c.moveTo(280,130);c.lineTo(310,140);c.stroke();
+  const pal=['#4e7a34','#5f8f3e','#71a24a','#8dbb5c'];for(let L=0;L<4;L++)for(let i=0;i<14;i++){const a=R()*Math.PI*2,d=R()*100*(1-L*.15);circ(c,180+Math.cos(a)*d*1.35,95+Math.sin(a)*d*.6-L*4,L===3?6+R()*6:22+R()*18,pal[L]);}
+  for(let i=0;i<30;i++)circ(c,70+R()*220,50+R()*100,3,'#b9a04a');});}
+function buildL4(){
+  W=2600;H=1200;sl=()=>-500;
+  const road=y=>y;
+  bg=mk(W,H,c=>{const R=rng(61);c.fillStyle='#dcc89c';c.fillRect(0,0,W,H);
+    for(let i=0;i<60;i++){const x=R()*W,y=R()*H,r=60+R()*120;ell(c,x,y,r,r*.5,R()<.5?'rgba(190,160,110,.25)':'rgba(240,225,190,.3)');}
+    grassNoise(c,W,H,R,['#cdb78a','#e6d6ae','#c4ad7e','#d8c79c'],14000);
+    for(let i=0;i<14;i++){const x=R()*W,y=R()<.5?150+R()*250:900+R()*250;ell(c,x,y,90+R()*80,40+R()*30,'rgba(120,160,70,.35)');}
+    c.fillStyle='#c9ad7a';c.fillRect(0,610,W,150);c.fillStyle='#bfa06c';c.fillRect(0,606,W,6);c.fillRect(0,756,W,6);
+    for(let i=0;i<2600;i++){c.fillStyle=R()<.5?'rgba(150,120,80,.35)':'rgba(240,225,190,.45)';c.fillRect(R()*W,612+R()*144,3,2);}
+    for(let x=0;x<W;x+=46){c.strokeStyle='rgba(140,110,70,.25)';c.lineWidth=1;c.strokeRect(x+(Math.floor(x/46)%2)*10,630,40,28);c.strokeRect(x+15,700,40,28);}
+    c.fillStyle='#d9c095';c.fillRect(2180,470,380,140);for(let x=2180;x<2560;x+=24)for(let y=470;y<610;y+=24){c.strokeStyle='rgba(150,120,80,.25)';c.strokeRect(x,y,24,24);}
+    flowers(c,W,H,R,260,['#d92f3a','#f4f4f4','#f1c83c'],()=>0,(x,y)=>y>590&&y<780);
+  });
+  props=[];npcs=[];items=[];groups=[];prints=[];sparks=[];waves=[];birds=[];const R=rng(64);for(let i=0;i<4;i++)birds.push({x:R()*W,y:40+R()*120,v:25+R()*20,ph:R()*6});
+  [[180,560,1],[520,575,2],[1180,560,3],[1940,575,4]].forEach(([x,y,s],i)=>addProp(house(400+s,['#6b4a2e','#3f6f9f','#7a5a3a','#6a8f3a'][i],['#a8433a',null,'#3f6f8f','#d8a73a'][i]),x,y,100,190,{w:160,h:92}));
+  [[340,1110,5],[820,1120,6],[1300,1100,7],[1760,1110,8],[2250,1120,9]].forEach(([x,y,s],i)=>addProp(house(400+s,'#6b4a2e',i%2?'#8a5aa0':null),x,y,100,190,{w:160,h:92}));
+  addProp(house(77,'#e9c45a','#7a2e5a'),2370,470,100,190,{w:160,h:92});
+  addProp(stall(),840,575,95,152,{w:160,h:40});
+  [[60,420],[700,430],[1020,450],[1460,420],[2100,330],[2560,700],[90,860],[620,880],[1080,880],[1540,870],[2020,870],[2500,900]].forEach((p,i)=>addProp(palm(500+i),p[0],p[1],70,203,{r:14}));
+  addProp(sycamore(),1650,600,180,322,{r:30});
+  const treeSpot={x:1650,y:690,label:'Wait here',active:false};items.push(treeSpot);
+  const chest={x:2440,y:600,label:'Take a money bag',active:false,r:70,draw:(c,it)=>{c.fillStyle='#6e4a2a';rr(c,it.x-24,it.y-30,48,30,4);c.fill();c.fillStyle='#8a6038';rr(c,it.x-26,it.y-38,52,12,5);c.fill();c.fillStyle='#e9c45a';c.fillRect(it.x-4,it.y-30,8,10);if(it.active){for(let i=0;i<4;i++)circ(c,it.x-12+i*8,it.y-40,3.5,'#f2c64a');}}};items.push(chest);
+  const jesus=npc({name:'Jesus',vid:'jesus',x:-80,y:690,look:JESUS_LOOK,isJesus:true,hidden:true,speed:150});
+  const peter=npc({name:'Simon Peter',vid:'peter',x:-160,y:660,look:looks.peter,hidden:true,facePlayer:false});
+  const john=npc({name:'John',vid:'john',x:-160,y:720,look:looks.john,hidden:true,facePlayer:false});
+  const zac=npc({name:'Zacchaeus',vid:'zacchaeus',x:760,y:598,look:{skin:'#c99a6c',hair:'#2a1c12',style:'wrap',wrap:'#5b3a8a',beard:true,robe:'#7a2e5a',trim:'#e9c45a',fine:true,size:.74},hop:true,dir:'down'});
+  const grumbler=npc({name:'Grumbling neighbour',vid:'grumbler',x:830,y:604,look:{skin:'#b98058',hair:'#3a2a1e',style:'wrap',wrap:'#c9b48a',beard:true,robe:'#8f6a4a'},facePlayer:true});
+  const crowdLines=[['Is He coming yet? I can\'t wait to see Jesus!','f'],['They say He healed a blind man named Bartimaeus, right outside our city!','m'],['Jericho is called the City of Palms. Aren\'t the trees lovely?','f'],['I brought my children to see the Teacher.','f'],['Move over, please! I can\'t see the road!','m'],['People say Jesus is a friend of sinners. Can that be true?','m']];
+  const RC=rng(70);const crowd=[];
+  [[300,598],[420,604],[560,598],[980,600],[1120,602],[1260,598],[1400,604],[1520,600],[1880,604],[2010,598],[360,772],[520,778],[700,770],[900,776],[1100,772],[1300,778],[1480,770],[1800,776],[1980,772]].forEach((p,i)=>{
+    let look=crowdLook(RC);const ln=crowdLines[i%6];if(i<6){look=crowdLook(RC);if(ln[1]==='f'){look.style='scarf';look.wrap=['#e8dcc0','#a8433a','#3f6f8f'][i%3];look.beard=false;}else{look.style='wrap';look.wrap='#efe6d0';look.beard=true;}look.size=1;}
+    const n=npc({name:'Townsperson',x:p[0],y:p[1],look,dir:p[1]<700?'down':'up',facePlayer:true});
+    if(i<6){n.vid=ln[1]==='f'?'crowdF':'crowdM';const line=ln[0];n.talk=async()=>{await say(n,line);};}crowd.push(n);});
+  const people=[
+    {name:'Widow Leah',vid:'widow',x:420,y:1160,look:{skin:'#c99a6c',hair:'#cfcac0',style:'scarf',wrap:'#6f6a8a',robe:'#8a7f70'},lines:['Money for me? From Zacchaeus? He took so much from me after my husband died...','And now he gives back four times as much! Praise God!']},
+    {name:'Fisherman Jonah',vid:'crowdM',x:1020,y:560,look:{skin:'#b98058',hair:'#2a1c12',style:'short',beard:true,robe:'#5f7f8f'},lines:['Four times what he took? I don\'t believe it!','Jesus has really changed that man. Thank you, child!']},
+    {name:'Farmer Benjamin',vid:'grumbler',x:1390,y:1150,look:{skin:'#a87650',hair:'#3a2a1e',style:'wrap',wrap:'#d8c49a',beard:true,robe:'#6a8f3a'},lines:['Now I can buy seed for my fields this year!','I grumbled about Zacchaeus... but look how God changed his heart.']},
+    {name:'Blind Bartimaeus',vid:'beggar',x:1960,y:820,look:{skin:'#8f6040',hair:'#2a1c12',style:'wrap',wrap:'#a89a80',beard:true,robe:'#8f7d64'},seated:true,lines:['For me? I used to sit here begging. Jesus healed my eyes, and now Zacchaeus is sharing with the poor!','God bless him, and God bless you!']}
+  ].map(o=>{const n=npc(Object.assign({facePlayer:true},o));n.done=false;return n;});
+  Object.assign(player,{x:120,y:690,dir:'right',carry:null,look:playerLook(),goal:null,tap:null});
+  const S={stage:0,given:0,bub:0};
+  zac.talk=async()=>{
+    if(S.stage===0){zac.hop=false;
+      await say(zac,'Excuse me... excuse me! Oh, it\'s no use. I\'m too short, and nobody will let me through.');
+      await say(grumbler,'Why should we let YOU through, Zacchaeus? You\'re a tax collector. You cheat everybody!');
+      zac.sad=true;
+      await guided('What will you do?',[
+        {t:'Yeah! Go away, cheater!',r:[[HEART,'Do not judge, and you will not be judged.','Luke 6:37'],[narr,'Jesus loves Zacchaeus too. How would Jesus treat him?']]},
+        {t:'Just walk away and ignore him.',r:[[HEART,'Love your neighbor as yourself.','Mark 12:31'],[narr,'Is there something kinder you could do?']]},
+        {t:'Hi, Zacchaeus! I\'m {name}. I want to see Jesus too. Let\'s find a better place to see Him!',good:true,star:'You were kind when others were not',r:[[zac,'You... you\'re being kind to me? Nobody is ever kind to me!'],[zac,'Wait, I have an idea! That big sycamore-fig tree up ahead. I can climb it!']]}
+      ]);
+      zac.sad=false;zac.happy=true;S.stage=1;
+      await say(narr,'So Zacchaeus ran ahead and climbed a sycamore-fig tree to see Jesus, since Jesus was coming that way.','Luke 19:4');
+      zac.speed=230;zac.facePlayer=false;await walkTo(zac,1650,606);zac.lift=130;zac.dir='down';
+      treeSpot.active=true;setGoal('Go to the big sycamore-fig tree and wait for Jesus',treeSpot);return;}
+    if(S.stage<3)return say(zac,'I can see everything from up here!');
+    if(S.stage===3)return say(zac,'Please take the money bags from my chest to the people with the coin signs.');
+    return say(zac,'Thank you, {name}! I feel like a brand new person!');
+  };
+  async function jesusComes(){
+    camT=jesus;jesus.hidden=peter.hidden=john.hidden=false;peter.follow=jesus;peter.fd=60;john.follow=peter;john.fd=50;
+    Music.play('hill');crowd.forEach(n=>n.facePlayer=false);
+    await say(narr,'Here comes Jesus! The crowd is cheering and pushing to see Him.');
+    await walkTo(jesus,1610,700,210);jesus.dir='up';
+    await say(jesus,'Zacchaeus, come down immediately. I must stay at your house today.','Luke 19:5');
+    await say(zac,'Me? You want to come to my house? Yes, Lord! I\'m coming down!');
+    zac.lift=0;zac.x=1690;zac.y=708;burst(zac.x,zac.y-40,16);
+    await say(narr,'So he came down at once and welcomed Jesus gladly.','Luke 19:6');
+    await say(grumbler,'Look at that! He has gone to be the guest of a sinner!','Luke 19:7');
+    camT=null;jesus.dir='left';jesus.facePlayer=true;
+    await say(jesus,'{name}, the people are grumbling. What do you think?');
+    await guided('What do you think?',[
+      {t:'Jesus shouldn\'t visit him. He did bad things.',r:[[jesus,'It is not the healthy who need a doctor, but the sick.','Luke 5:31'],[jesus,'Think again, {name}. Why did I come?']]},
+      {t:'You love everyone, even people who did wrong. You came to help them change.',good:true,star:'You understood Jesus\' love',r:[[jesus,'Yes! There is more joy in heaven over one sinner who repents than over ninety-nine who do not need to repent.','Luke 15:7']]}
+    ]);
+    await say(jesus,'Come, let\'s all go to Zacchaeus\' house together.');
+    await fadeTo(1);
+    Object.assign(jesus,{x:2300,y:640,dir:'right'});Object.assign(zac,{x:2400,y:650,dir:'left'});Object.assign(peter,{x:2250,y:600});Object.assign(john,{x:2250,y:690});peter.follow=john.follow=null;
+    Object.assign(player,{x:2340,y:700,dir:'up'});snapCam();await fadeTo(0);
+    await say(zac,'Look, Lord! Here and now I give half of my possessions to the poor. And if I have cheated anybody out of anything, I will pay back four times the amount.','Luke 19:8');
+    await say(jesus,'Today salvation has come to this house.','Luke 19:9');
+    await say(zac,'{name}, will you help me? Please take money bags from my chest to the people I cheated. They live all along the street.');
+    S.stage=3;chest.active=true;people.forEach(p=>p.marker='coin');setGoal('Take a money bag from Zacchaeus\' chest',chest);
+  }
+  chest.onAct=async()=>{if(S.stage!==3)return;if(player.carry==='coins')return say(narr,'You are already carrying a money bag. Take it to someone with a coin sign.');
+    player.carry='coins';sfx.pop();const nx=people.filter(p=>!p.done).sort((a,b)=>dist(a,player)-dist(b,player))[0];setGoal('Give the money bag to someone Zacchaeus cheated ('+S.given+' of 4)',nx);};
+  people.forEach(p=>p.talk=async()=>{
+    if(S.stage===3&&player.carry==='coins'&&!p.done){player.carry=null;p.done=true;p.marker=null;p.happy=true;S.given++;sfx.chime();burst(p.x,p.y-40,16);
+      await say(p,p.lines[0]);await say(p,p.lines[1]);
+      if(S.given>=4)return finish4();
+      setGoal('Take another money bag from the chest ('+S.given+' of 4)',chest);return;}
+    if(p.done)return say(p,'Thank you again, child!');
+    if(S.stage<3)return say(p,p.vid==='beggar'?'Jesus healed my eyes! Now I can see everything!':'Have you seen Jesus? He is coming through Jericho today!');
+    return say(p,'Do you have something for me?');
+  });
+  async function finish4(){
+    S.stage=4;camT=null;
+    await fadeTo(1);Object.assign(player,{x:2330,y:700,dir:'up'});snapCam();await fadeTo(0);
+    await say(zac,'Thank you, {name}! I feel like a brand new person!');
+    await say(jesus,'For the Son of Man came to seek and to save the lost.','Luke 19:10');
+    await say(jesus,'{name}, Zacchaeus made things right with the people he hurt. Is there anything you need to make right?');
+    await guided('What will you say?',[
+      {t:'No, I never do anything wrong.',r:[[jesus,'Everyone makes mistakes, {name}, even grown-ups. You can always be honest with me.']]},
+      {t:'Maybe. I can say sorry and make things right, like Zacchaeus did.',good:true,star:'You chose to make things right',r:[[jesus,'That is what my followers do. And I will help you, every step of the way.']]}
+    ]);
+    endChapter();
+  }
+  LV={
+    tint:'rgba(255,205,130,.07)',
+    start:async()=>{Music.play('jericho');showCard('Chapter 4','Zacchaeus Comes Down');await wait(1700);
+      await say(narr,'Jesus came to Jericho, the City of Palms. Crowds filled the street to see Him passing through.','Luke 19:1');
+      await say(narr,'Walk along the street and find out who is trying to see Jesus.');
+      setGoal('Find out who is trying to see Jesus',zac);},
+    tick(){
+      if(S.stage===1&&cut===0&&!dlg&&dist(player,treeSpot)<170){S.stage=2;treeSpot.active=false;run(jesusComes);}
+      if(S.stage===0&&T>S.bub){S.bub=T+5;zac.bubble={text:'Excuse me! I can\'t see!',until:T+2.2};}
+    }
+  };
+}
+
+/* ================= chapter 5: He is risen ================= */
+function tombRock(){return mk(600,400,c=>{const R=rng(99);ell(c,300,388,280,20,'rgba(30,25,10,.3)');
+  c.fillStyle='#9a8a72';c.beginPath();c.moveTo(10,390);c.quadraticCurveTo(0,200,70,120);c.quadraticCurveTo(140,30,300,40);c.quadraticCurveTo(470,30,540,130);c.quadraticCurveTo(600,220,590,390);c.closePath();c.fill();
+  c.fillStyle='#b3a48a';c.beginPath();c.moveTo(80,140);c.quadraticCurveTo(160,50,300,60);c.quadraticCurveTo(450,55,520,140);c.quadraticCurveTo(300,110,80,160);c.fill();
+  c.strokeStyle='rgba(70,60,45,.35)';c.lineWidth=2;for(let i=0;i<14;i++){const x=40+R()*520,y=120+R()*240;c.beginPath();c.moveTo(x,y);c.lineTo(x+(R()-.5)*60,y+20+R()*30);c.stroke();}
+  for(let i=0;i<16;i++)circ(c,60+R()*480,50+R()*60,8+R()*10,['#5e8a3e','#6f9a48','#4c7a34'][i%3]);
+  c.fillStyle='#2a221a';c.beginPath();c.moveTo(250,390);c.lineTo(250,290);c.arc(300,290,50,Math.PI,0);c.lineTo(350,390);c.closePath();c.fill();
+  c.strokeStyle='#7d6e58';c.lineWidth=6;c.beginPath();c.moveTo(244,390);c.lineTo(244,290);c.arc(300,290,56,Math.PI,0);c.lineTo(356,390);c.stroke();
+  c.fillStyle='rgba(255,245,210,.12)';c.fillRect(256,330,88,60);
+});}
+function stoneDisk(){return mk(170,170,c=>{ell(c,85,162,70,10,'rgba(30,25,10,.3)');circ(c,85,85,76,'#8f8270');circ(c,85,85,62,'#a39680');circ(c,85,85,18,'#8f8270');c.strokeStyle='rgba(60,50,40,.3)';c.lineWidth=2;c.beginPath();c.arc(85,85,40,0,7);c.stroke();});}
+function cityWall(){return mk(1400,230,c=>{const R=rng(12);c.fillStyle='#cdb89a';c.fillRect(0,30,1400,170);for(let y=30;y<200;y+=22)for(let x=(y/22%2)*24;x<1400;x+=48){c.fillStyle=R()<.5?'#c2ac8c':'#d6c4a6';c.fillRect(x+1,y+1,46,20);}
+  for(let x=0;x<1400;x+=40){c.fillStyle='#cdb89a';c.fillRect(x,8,24,24);}
+  c.fillStyle='#bfa985';c.fillRect(620,0,170,210);c.fillStyle='#3a2c20';c.beginPath();c.moveTo(660,210);c.lineTo(660,110);c.arc(705,110,45,Math.PI,0);c.lineTo(750,210);c.closePath();c.fill();
+  c.fillStyle='rgba(0,0,0,.18)';c.fillRect(0,195,1400,10);});}
+function buildL5(){
+  W=2600;H=1300;sl=()=>-500;
+  bg=mk(W,H,c=>{const R=rng(81);c.fillStyle='#9fbf6a';c.fillRect(0,0,W,H);
+    for(let i=0;i<70;i++){const x=R()*W,y=R()*H,r=80+R()*150;ell(c,x,y,r,r*.5,R()<.5?'rgba(90,130,50,.22)':'rgba(190,210,130,.22)');}
+    grassNoise(c,W,H,R,['#8fb05c','#b3cc7c','#7fa04e','#a5c46e'],24000);
+    ell(c,500,560,520,300,'rgba(214,192,142,.85)');
+    c.lineCap='round';c.lineJoin='round';const path=[[480,640],[800,620],[1150,560],[1500,520],[1850,500],[2100,520]];c.strokeStyle='#bca070';c.lineWidth=56;smoothPath(c,path);c.stroke();c.strokeStyle='#d6bd8c';c.lineWidth=42;smoothPath(c,path);c.stroke();
+    c.strokeStyle='#a89878';c.lineWidth=14;c.beginPath();c.moveTo(1350,1250);c.lineTo(1350,780);c.quadraticCurveTo(1350,700,1430,700);c.stroke();
+    flowers(c,W,H,R,1100,['#f4f4f4','#f4f4f4','#f1c83c','#d96aa0','#a07ad0'],()=>260,(x,y)=>x<1000&&y<900);
+  });
+  props=[];npcs=[];items=[];groups=[];prints=[];sparks=[];waves=[];birds=[];const R=rng(85);for(let i=0;i<5;i++)birds.push({x:R()*W,y:30+R()*150,v:25+R()*25,ph:R()*6});
+  addProp(cityWall(),700,230,700,230,{w:1400,h:60});
+  [[260,560,1],[700,520,2],[320,1000,3]].forEach(([x,y,s],i)=>addProp(house(600+s,['#6b4a2e','#3f6f9f','#7a5a3a'][i],[null,'#a8433a','#3f6f8f'][i]),x,y,100,190,{w:160,h:92}));
+  addProp(tombRock(),2150,420,300,392,{w:520,h:150});
+  addProp(stoneDisk(),2390,440,85,162,{r:60});
+  [[1150,820],[1500,900],[1800,820],[2450,800],[1300,320],[1700,300],[2500,560],[1000,1150],[1900,1150],[2300,1100],[600,1200]].forEach((p,i)=>addProp(tree(700+i,i%3?'olive':'green'),p[0],p[1],85,172,{r:20}));
+  [[1600,640],[2000,700],[1250,700],[2250,650]].forEach((p,i)=>addProp(bush(720+i),p[0],p[1],40,54,null));
+  const tombSpot={x:2150,y:520},tombDoor={x:2150,y:440,label:'Look inside the tomb',active:false,r:110};items.push(tombDoor);
+  const scarfLook=(w,r)=>({skin:'#c99a6c',hair:'#2a1c12',style:'scarf',wrap:w,robe:r});
+  const marym=npc({name:'Mary Magdalene',vid:'marym',x:430,y:660,look:scarfLook('#8a5aa0','#c9a46a'),carry:'jar'});
+  const salome=npc({name:'Salome',vid:'salome',x:520,y:690,look:Object.assign(scarfLook('#3f6f8f','#d8b35a'),{skin:'#b98058'}),carry:'jar'});
+  const mary2=npc({name:'Mary, mother of James',vid:'mary2',x:360,y:700,look:Object.assign(scarfLook('#a8433a','#8f7d64'),{skin:'#d4a57a'}),carry:'jar'});
+  const peter=npc({name:'Simon Peter',vid:'peter',x:300,y:1080,look:looks.peter,sad:true});
+  const john=npc({name:'John',vid:'john',x:400,y:1100,look:looks.john,sad:true});
+  const andrew=npc({name:'Andrew',vid:'andrew',x:220,y:1120,look:looks.andrew,sad:true});
+  const angel=npc({name:'Angel',vid:'angel',x:2390,y:470,look:{skin:'#efd5b5',hair:'#e8d49a',style:'long',robe:'#ffffff',trim:'#f3e7b0',belt:'#f2d27a',glow:true,size:1.12},hidden:true,seated:true,lift:40});
+  const jesus=npc({name:'Jesus',vid:'jesus',x:1200,y:620,look:JESUS_LOOK,isJesus:true,hidden:true});
+  Object.assign(player,{x:480,y:740,dir:'up',carry:null,look:playerLook(),goal:null,tap:null});
+  const S={stage:0,dark:.55,target:.55,met:false,first:false};
+  marym.talk=async()=>{
+    if(S.stage===0){
+      await say(marym,'Good morning, {name}. We are going to the tomb to bring spices for Jesus\' body.');
+      await say(salome,'But who will roll the stone away from the entrance of the tomb?','Mark 16:3');
+      await say(mary2,'Will you come with us, child? Please help us carry this jar of spices.');
+      player.carry='jar';marym.follow=player;marym.fd=60;salome.follow=marym;salome.fd=50;mary2.follow=salome;mary2.fd=50;
+      [marym,salome,mary2].forEach(n=>n.facePlayer=false);
+      S.stage=1;setGoal('Walk with the women to the garden tomb',tombSpot);return;}
+    if(S.stage<3)return say(marym,'I miss Him so much, {name}.');
+    return say(marym,'He is alive! I saw Him with my own eyes!');
+  };
+  salome.talk=async()=>say(salome,S.stage<3?'It is so early. Look, the sun is just beginning to rise.':'Hurry, {name}! Tell the disciples!');
+  mary2.talk=async()=>say(mary2,S.stage<3?'Jesus was always so kind to us. I can\'t believe He is gone.':'Hallelujah! He is risen!');
+  async function atTomb(){
+    [marym,salome,mary2].forEach(n=>n.follow=null);camT={x:2200,y:480};
+    await say(narr,'When they looked up, they saw that the stone, which was very large, had been rolled away!','Mark 16:4');
+    angel.hidden=false;burst(angel.x,angel.y-80,40);sfx.chime();Music.play('miracle');S.target=.3;
+    await say(marym,'Oh! Who is that? He shines like lightning!');
+    await say(angel,'Do not be afraid, for I know that you are looking for Jesus, who was crucified.','Matthew 28:5');
+    await say(angel,'He is not here; He has risen, just as He said. Come and see the place where He lay.','Matthew 28:6');
+    player.carry=null;[marym,salome,mary2].forEach(n=>n.carry=null);camT=null;S.stage=2;tombDoor.active=true;setGoal('Look inside the tomb',tombDoor);
+  }
+  tombDoor.onAct=async()=>{if(S.stage!==2)return;tombDoor.active=false;
+    await say(narr,'You look inside. The tomb is empty! Only the strips of linen are lying there, and the cloth that was around His head is folded up by itself.','John 20:6–7');
+    const k=await choose(player,'How do you feel?',['Amazed! Jesus is alive!','So happy, I want to jump and shout!','A little confused... is it really true?']);
+    if(k===0)await say(salome,'Me too! I can hardly believe it!');
+    else if(k===1)await say(mary2,'Then let\'s shout it! Hallelujah!');
+    else await say(angel,'It is true. Remember how He told you: the Son of Man will be raised again on the third day.','Luke 24:6–7');
+    await say(angel,'Now go quickly and tell His disciples: He has risen from the dead.','Matthew 28:7');
+    Music.play('easter');S.target=.18;S.stage=3;[marym,salome,mary2].forEach((n,i)=>{n.follow=i?[marym,salome][i-1]:player;n.fd=55;n.happy=true;});
+    setGoal('Run and tell the disciples the good news!',peter);
+  };
+  async function meetJesus(){
+    S.met=true;Object.assign(jesus,{x:player.x-170,y:player.y-10,hidden:false,dir:'right'});burst(jesus.x,jesus.y-60,40);sfx.chime();camT=jesus;
+    await say(jesus,'Greetings!','Matthew 28:9');
+    await say(marym,'Jesus! It\'s really you! You\'re alive!');
+    await say(narr,'They came to Him, held on to His feet, and worshiped Him.','Matthew 28:9');
+    await say(jesus,'Do not be afraid. Go and tell my brothers.','Matthew 28:10');
+    await say(jesus,'{name}, I am alive! Go and tell my friends the good news. I will see you again soon.');
+    burst(jesus.x,jesus.y-60,30);jesus.hidden=true;camT=null;S.target=0;
+    setGoal('Tell the disciples the good news!',peter);
+  }
+  peter.talk=async()=>{
+    if(S.stage<3)return say(peter,'Please leave me alone, {name}. I am so sad. I miss Jesus.');
+    if(S.stage===3){
+      await say(peter,'{name}? Why are you all out of breath?');
+      await say(marym,'We have seen the Lord! The tomb is empty. Jesus is alive!');
+      await say(peter,'Alive? That sounds like nonsense. We saw Him die.');
+      await guided('What will you say?',[
+        {t:'Fine! Don\'t believe me, then!',r:[[HEART,'My command is this: Love each other as I have loved you.','John 15:12'],[narr,'Getting angry won\'t help Peter. How can you share the good news kindly?']]},
+        {t:'It\'s true, Peter! The tomb is empty, and we saw Jesus with our own eyes! Come and see!',good:true,star:'You shared the good news',r:[[john,'Come on, Peter! Let\'s go and see!']]}
+      ]);
+      await say(narr,'So Peter and John got up and ran to the tomb. Both were running, but John ran faster.','John 20:3–4');
+      [peter,john,andrew].forEach(n=>{n.sad=false;n.facePlayer=false;});
+      S.stage=4;peter.speed=165;john.speed=200;walkTo(peter,2120,560);walkTo(john,2190,560);
+      setGoal('Race Peter and John to the tomb!',tombSpot);return;}
+    return say(peter,'He is risen!');
+  };
+  john.talk=async()=>say(john,S.stage<3?'I was there when He died. I miss Him so much.':'He is alive!');
+  andrew.talk=async()=>say(andrew,S.stage<3?'What will we do without Jesus?':'Is it really true?');
+  async function finale5(){
+    camT={x:2160,y:560};
+    if(S.first)toast('You got there first!');
+    await say(john,'Look! The strips of linen are lying there... He is not here!');
+    await say(peter,'It\'s empty! It\'s really empty! He is risen!');
+    Object.assign(jesus,{x:2000,y:640,hidden:false,dir:'right'});burst(jesus.x,jesus.y-60,50);sfx.chime();Music.play('end');
+    await say(jesus,'Peace be with you!','John 20:19');
+    await say(peter,'Lord! It is You!');
+    jesus.facePlayer=true;camT=null;
+    await say(jesus,'{name}, you walked with me all the way: by the lake, on the hillside, through the storm, in Jericho, and now on this wonderful morning.');
+    await say(jesus,'Therefore go and make disciples of all nations.','Matthew 28:19');
+    await say(jesus,'That means: tell everyone about me, and help them follow me too.');
+    const k=await choose(player,'How will you follow Jesus now?',['I will tell my friends and family about you!','I will be kind and help people, like you do!','I will talk to you every day when I pray!']);
+    star(['You will share the good news','You will love like Jesus','You will pray every day'][k]);
+    await say(jesus,'That makes me so happy, {name}.');
+    await say(jesus,'And surely I am with you always, to the very end of the age.','Matthew 28:20');
+    await askJesus(jesus);
+    endChapter();
+  }
+  LV={
+    tint:'rgba(255,200,140,.06)',
+    screen(c){c.fillStyle='rgba(18,22,60,'+S.dark+')';c.fillRect(0,0,VW,VH);const g=c.createLinearGradient(VW,0,VW*.4,0);g.addColorStop(0,'rgba(255,170,90,'+(.22*(1-S.dark))+')');g.addColorStop(1,'rgba(255,170,90,0)');c.fillStyle=g;c.fillRect(0,0,VW,VH);},
+    start:async()=>{Music.play('dawn');showCard('Chapter 5','He Is Risen!');await wait(1700);
+      await say(narr,'On Friday, Jesus died on a cross. He gave His life for us, because He loves us so much.');
+      await say(narr,'His friends were very sad. They laid His body in a tomb cut out of rock, and rolled a big stone in front of the entrance.');
+      await say(narr,'Now it is very early on Sunday morning, just after sunrise.','Mark 16:2');
+      setGoal('Talk to Mary Magdalene',marym);},
+    tick(dt){
+      S.dark+=(S.target-S.dark)*Math.min(1,dt*.6);
+      if(S.stage===1&&cut===0&&!dlg&&dist(player,tombSpot)<280){S.stage=1.5;run(atTomb);}
+      if(S.stage===3&&!S.met&&cut===0&&!dlg&&player.x<1350)run(meetJesus);
+      if(S.stage===4&&!S.first&&dist(player,tombSpot)<150&&john.goal)S.first=true;
+      if(S.stage===4&&cut===0&&!dlg&&dist(player,tombSpot)<220&&!peter.goal&&!john.goal){S.stage=5;run(finale5);}
+    }
+  };
+}
+
+
+const baskets12img=baskets12();
+
+async function askJesus(jesus){
+  const qs=[
+    ['Jesus, how should I pray?',[[jesus,'When you pray, say: Father, hallowed be your name, your kingdom come.','Luke 11:2'],[jesus,'You can talk to your Father in heaven any time, about anything. He loves to hear from you.']]],
+    ['Sometimes I feel scared.',[[jesus,'Do not let your hearts be troubled. You believe in God; believe also in me.','John 14:1'],[jesus,'And surely I am with you always.','Matthew 28:20']]],
+    ['What if I do something wrong?',[[jesus,'The Son of Man came to seek and to save the lost.','Luke 19:10'],[jesus,'When you say sorry and come back to me, I am always glad to welcome you home.']]],
+    ['How can I follow you at home and at school?',[[jesus,'My command is this: Love each other as I have loved you.','John 15:12'],[jesus,'Be kind, tell the truth, share what you have, and look for people who are left out, just like you did today.']]],
+    ['Do you really love me?',[[jesus,'As the Father has loved me, so have I loved you. Remain in my love.','John 15:9']]]
+  ];
+  await say(jesus,'Is there anything you want to ask me, {name}?');
+  while(true){const left=qs.filter(q=>!q.done);const opts=left.map(q=>q[0]).concat(['Thank you, Jesus! (finish the chapter)']);
+    const k=await choose(player,'Ask Jesus something:',opts);if(k===left.length)break;left[k].done=true;await lines(left[k][1]);}
+  await say(jesus,'Go in peace, {name}. I will be with you on the road ahead.');
+}
+function endChapter(){mode='end';$('#hud').hidden=true;Voice.stop();
+  const i=level,last=i>=CH.length-1;
+  $('#endTitle').textContent=last?'The End, well done '+player.name+'!':'Chapter '+(i+1)+' complete!';
+  $('#endText').textContent=CH[i].done+' You have '+stars+' kindness star'+(stars===1?'':'s')+'.';
+  $('#nextInfo').innerHTML=last?'Your journey with Jesus doesn\'t end here. He is with you every day!':'<b>Next:</b> Chapter '+(i+2)+', '+esc(CH[i+1].t);
+  $('#again').textContent=last?'Play again':'Continue to Chapter '+(i+2);
+  const st='<svg viewBox="0 0 24 24"><path d="M12 2l3 6.5 7 .8-5.2 4.8 1.4 7L12 17.6 5.8 21l1.4-7L2 9.3l7-.8z" fill="#f2b632" stroke="#b07b0d" stroke-width="1.5"/></svg>';
+  $('#endStars').innerHTML=st.repeat(stars);
+  $('#endVerses').innerHTML=verses.filter(v=>v.ch===i||(i===1&&v.ch===0)).map(v=>'<li>"'+esc(v.text)+'"<span>'+esc(v.ref)+'</span></li>').join('');
+  $('#end').hidden=false;}
+
+/* ---------------- level loading ---------------- */
+function loadLevel(i){level=i;goalTarget=null;$('#goal').textContent='';camT=null;ground=null;walkFn=null;fade=0;CH[i].build();VO.load('ch'+(i+1));snapCam();if(mode==='play')run(LV.start);}
+function snapCam(){const t=player;cam.x=Math.max(0,Math.min(W-VW,t.x-VW/2));cam.y=Math.max(0,Math.min(H-VH,t.y-VH/2-30));}
+
+/* ---------------- update ---------------- */
+const K={};
+function stepEnt(e,dt){
+  let tx=null,ty=null,sp=e.speed||110,stop=2;
+  if(e.goal){tx=e.goal.x;ty=e.goal.y;}
+  else if(e.follow){const f=e.follow,d=Math.hypot(f.x-e.x,f.y-e.y);stop=e.fd||60;if(d>stop+6){tx=f.x;ty=f.y;sp=d>180?240:160;}}
+  if(tx!==null){const dx=tx-e.x,dy=ty-e.y,d=Math.hypot(dx,dy);
+    if(d>stop){const st=Math.min(d-(e.goal?0:stop),sp*dt);e.x+=dx/d*st;e.y+=dy/d*st;e.dir=Math.abs(dx)>Math.abs(dy)?(dx<0?'left':'right'):(dy<0?'up':'down');e.moving=true;e.walkT+=dt;return;}
+    if(e.goal){const r=e.goal.res;e.goal=null;r&&r();}}
+  e.moving=false;
+  if(e.facePlayer&&!e.isPlayer&&dist(e,player)<170){const dx=player.x-e.x,dy=player.y-e.y;e.dir=Math.abs(dx)>Math.abs(dy)*1.2?(dx<0?'left':'right'):(dy<0?'up':'down');}
+}
+function update(dt){
+  T+=dt;
+  if(mode==='play'&&!busy()){
+    let vx=(K.right?1:0)-(K.left?1:0),vy=(K.down?1:0)-(K.up?1:0);
+    if(vx||vy)player.tap=null;
+    else if(player.tap){const dx=player.tap.x-player.x,dy=player.tap.y-player.y,d=Math.hypot(dx,dy);if(d<8)player.tap=null;else{vx=dx/d;vy=dy/d;}}
+    if(vx||vy){const l=Math.hypot(vx,vy);vx/=l;vy/=l;const sp=200;const nx=player.x+vx*sp*dt,ny=player.y+vy*sp*dt;let movedX=false,movedY=false;
+      if(walkable(nx,player.y)){player.x=nx;movedX=true;}if(walkable(player.x,ny)){player.y=ny;movedY=true;}
+      if(!movedX&&!movedY)player.tap=null;
+      player.dir=Math.abs(vx)>Math.abs(vy)?(vx<0?'left':'right'):(vy<0?'up':'down');player.moving=true;player.walkT+=dt;}
+    else player.moving=false;
+    if(player.tapTarget&&!player.tap){const t=player.tapTarget;player.tapTarget=null;const o=interactables().find(o=>o.e===t);if(o&&dist(player,t)<o.r+30)run(o.fn);}
+  }else if(player.goal)stepEnt(player,dt);else player.moving=false;
+  npcs.forEach(n=>stepEnt(n,dt));
+  if(LV&&mode==='play')LV.tick(dt);
+  sparks.forEach(s=>{s.x+=s.vx*dt;s.y+=s.vy*dt;s.vy+=60*dt;s.life-=dt*1.1;});sparks=sparks.filter(s=>s.life>0);
+  prints=prints.filter(p=>T-p.t0<5);
+  const tg=mode==='title'?{x:700+Math.sin(T*.12)*500,y:700}:(camT||player);
+  const tx=Math.max(0,Math.min(W-VW,tg.x-VW/2)),ty=Math.max(0,Math.min(H-VH,tg.y-VH/2-30));
+  cam.x+=(tx-cam.x)*Math.min(1,dt*4);cam.y+=(ty-cam.y)*Math.min(1,dt*4);
+}
+
+/* ---------------- render ---------------- */
+let vign=null,vignKey='';
+function render(){
+  ctx.setTransform(SC,0,0,SC,0,0);
+  const cx=Math.round(cam.x),cy=Math.round(cam.y);
+  if(!bg){ctx.fillStyle='#000';ctx.fillRect(0,0,VW,VH);return;}
+  const rk=LV&&LV.rock?LV.rock():0;
+  if(rk){ctx.fillStyle='#1a5179';ctx.fillRect(0,0,VW,VH);ctx.translate(VW/2,VH/2);ctx.rotate(rk);ctx.translate(-VW/2,-VH/2);}
+  ctx.drawImage(bg,cx,cy,VW,VH,0,0,VW,VH);
+  ctx.save();ctx.translate(-cx,-cy);
+  const WA=LV&&LV.waveAmp?LV.waveAmp():1;
+  // water life
+  ctx.lineWidth=1.6;ctx.lineCap='round';
+  for(const w of waves){if(w.x<cx-30||w.x>cx+VW+30||w.y<cy-20||w.y>cy+VH+20)continue;const a=Math.min(.85,(.18+.22*Math.sin(T*1.4*Math.sqrt(WA)+w.ph))*Math.sqrt(WA)),px=w.x+Math.sin(T*.6*WA+w.ph)*6*WA,py=w.y+Math.sin(T*1.1+w.ph)*3*(WA-1);ctx.strokeStyle='rgba(255,255,255,'+Math.max(0,a).toFixed(3)+')';ctx.lineWidth=1.6*Math.min(2,WA);ctx.beginPath();ctx.moveTo(px-8*WA,py);ctx.quadraticCurveTo(px,py-4*WA,px+8*WA,py);ctx.stroke();}
+  if(ground)ctx.drawImage(ground.img,ground.x,ground.y);
+  ctx.strokeStyle='rgba(255,255,255,.6)';ctx.lineWidth=3;ctx.beginPath();for(let x=cx-10;x<=cx+VW+10;x+=8){const y=sl(x)+4+Math.sin(T*2+x*.05)*2.5;x===cx-10?ctx.moveTo(x,y):ctx.lineTo(x,y);}ctx.stroke();
+  // footprints
+  for(const p of prints){const a=Math.max(0,1-(T-p.t0)/5);const g=ctx.createRadialGradient(p.x,p.y,1,p.x,p.y,16);g.addColorStop(0,'rgba(255,240,150,'+(.55*a)+')');g.addColorStop(1,'rgba(255,240,150,0)');ctx.fillStyle=g;ctx.beginPath();ctx.arc(p.x,p.y,16,0,7);ctx.fill();ell(ctx,p.x+(p.s?5:-5),p.y,3.5,5.5,'rgba(140,100,50,'+(.6*a)+')');}
+  // depth-sorted
+  const list=[];
+  for(const p of props){if(p.x-p.ax>cx+VW||p.x+p.img.width-p.ax<cx||p.y-p.ay>cy+VH||p.y+20<cy)continue;list.push([p.y,()=>{const o=p.bob?Math.sin(T*1.5+p.ph)*2.5:0;ctx.drawImage(p.img,Math.round(p.x-p.ax),Math.round(p.y-p.ay+o));}]);}
+  for(const it of items)if(it.draw)list.push([it.y,()=>it.draw(ctx,it)]);
+  for(const g of groups){g.people.forEach(pp=>list.push([g.y+pp.dy,()=>drawPerson(ctx,g.x+pp.dx,g.y+pp.dy,pp.look,{seated:true,bt:T,happy:g.fed,sad:!g.fed&&g.idx===7,dir:'down'})]));if(g.fed)list.push([g.y+30,()=>{drawBread(ctx,g.x-14,g.y+30,1);drawFish(ctx,g.x+14,g.y+31,1);}]);}
+  for(const n of npcs){if(n.hidden)continue;const oy=(n.on?Math.sin(T*1.5+n.on.ph)*2.5:0)-(n.lift||0)-(n.hop?Math.abs(Math.sin(T*7))*7:0);list.push([n.y+(n.on?40:0),()=>drawPerson(ctx,n.x,n.y+oy,n.look,{dir:n.dir,moving:n.moving,t:n.walkT,bt:T,talking:speaking===n||Voice.who===n,seated:n.seated,wave:n.wave,sleep:n.sleep,sad:n.sad,happy:n.happy,carry:n.carry?CARRY[n.carry]:null})]);}
+  list.push([player.y,()=>drawPerson(ctx,player.x,player.y,player.look,{dir:player.dir,moving:player.moving,t:player.walkT,bt:T,talking:speaking===player||Voice.who===player,carry:player.carry?CARRY[player.carry]:null})]);
+  list.sort((a,b)=>a[0]-b[0]).forEach(o=>o[1]());
+  // birds
+  ctx.strokeStyle='rgba(250,250,250,.9)';ctx.lineWidth=2;
+  for(const b of birds){const x=((b.x+T*b.v)%(W+200))-100,y=b.y+Math.sin(T+b.ph)*12,f=Math.sin(T*8+b.ph)*5;ctx.beginPath();ctx.moveTo(x-9,y-f);ctx.quadraticCurveTo(x-4,y-4,x,y);ctx.quadraticCurveTo(x+4,y-4,x+9,y-f);ctx.stroke();}
+  // sparks
+  for(const s of sparks){ctx.fillStyle='rgba(255,215,90,'+Math.max(0,s.life)+')';ctx.beginPath();ctx.arc(s.x,s.y,2.6,0,7);ctx.fill();}
+  // markers & bubbles
+  if(mode==='play'){
+    const mk=(x,y,ch)=>{const b=Math.sin(T*4)*3;ctx.fillStyle='#f2b632';ctx.strokeStyle='#8a5a0c';ctx.lineWidth=2.5;ctx.beginPath();ctx.arc(x,y+b,13,0,7);ctx.fill();ctx.stroke();ctx.fillStyle='#2a1d00';ctx.font='700 18px Fredoka, sans-serif';ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillText(ch,x,y+b+1);};
+    const food=(x,y)=>{const b=Math.sin(T*4)*3;ctx.fillStyle='#fff';ctx.strokeStyle='#d9b26a';ctx.lineWidth=2.5;ctx.beginPath();ctx.arc(x,y+b,14,0,7);ctx.fill();ctx.stroke();drawBread(ctx,x,y+b+1,.8);};
+    const coin=(x,y)=>{const b=Math.sin(T*4)*3;ctx.fillStyle='#f2c64a';ctx.strokeStyle='#8a5a0c';ctx.lineWidth=2.5;ctx.beginPath();ctx.arc(x,y+b,12,0,7);ctx.fill();ctx.stroke();ctx.fillStyle='#8a5a0c';ctx.font='700 13px Fredoka, sans-serif';ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillText('$',x,y+b+1);};
+    for(const n of npcs){if(n.hidden)continue;const top=n.y-(n.lift||0)-70*(n.look.size||1);if(n.marker==='coin')coin(n.x,top);else if(n===goalTarget||n.marker==='!')mk(n.x,top,'!');else if(n.marker==='?')mk(n.x,top,'?');}
+    for(const g of groups){if(g.marker2)food(g.x,g.y-62);else if(g===goalTarget)mk(g.x,g.y-62,'!');else if(g.marker==='?')mk(g.x,g.y-62,'?');}
+    for(const it of items)if(it===goalTarget)mk(it.x,it.y-60,'!');
+    ctx.font='800 14px Nunito, sans-serif';ctx.textAlign='center';ctx.textBaseline='middle';
+    for(const n of npcs){if(n.bubble&&T<n.bubble.until){const tw=ctx.measureText(n.bubble.text).width+18,x=n.x,y=n.y-(n.lift||0)-88*(n.look.size||1);ctx.fillStyle='rgba(255,255,255,.95)';rr(ctx,x-tw/2,y-14,tw,28,12);ctx.fill();ctx.beginPath();ctx.moveTo(x-6,y+13);ctx.lineTo(x,y+22);ctx.lineTo(x+6,y+13);ctx.fill();ctx.fillStyle='#2b2118';ctx.fillText(n.bubble.text,x,y);}}
+    if(!busy()){const t=nearest();if(t){const lab=(isTouch?'A: ':'Space: ')+t.label;const tw=ctx.measureText(lab).width+20,x=t.e.x,y=t.e.y+26;ctx.fillStyle='rgba(43,33,24,.88)';rr(ctx,x-tw/2,y-13,tw,26,13);ctx.fill();ctx.fillStyle='#ffe3a3';ctx.fillText(lab,x,y);}}
+  }
+  ctx.restore();
+  // warm light + vignette
+  const key=VW+'x'+VH;if(vignKey!==key){vignKey=key;vign=ctx.createRadialGradient(VW/2,VH/2,Math.min(VW,VH)*.35,VW/2,VH/2,Math.max(VW,VH)*.75);vign.addColorStop(0,'rgba(0,0,0,0)');vign.addColorStop(1,'rgba(20,10,0,.32)');}
+  if(rk)ctx.setTransform(SC,0,0,SC,0,0);
+  if(LV&&LV.screen)LV.screen(ctx);
+  ctx.fillStyle=(LV&&LV.tint)||(level===1?'rgba(255,190,110,.07)':'rgba(255,220,150,.05)');ctx.fillRect(0,0,VW,VH);ctx.fillStyle=vign;ctx.fillRect(0,0,VW,VH);
+  // edge arrow
+  if(mode==='play'&&goalTarget&&!busy()){const sx=goalTarget.x-cx,sy=goalTarget.y-40-cy;if(sx<10||sx>VW-10||sy<10||sy>VH-10){const ccx=VW/2,ccy=VH/2,a=Math.atan2(sy-ccy,sx-ccx);const m=40;let ex=ccx+Math.cos(a)*2000,ey=ccy+Math.sin(a)*2000;const k=Math.min(Math.abs((VW/2-m)/(ex-ccx||1)),Math.abs((VH/2-m)/(ey-ccy||1)));ex=ccx+(ex-ccx)*k;ey=ccy+(ey-ccy)*k;ctx.save();ctx.translate(ex,ey);ctx.rotate(a);const p=1+Math.sin(T*5)*.12;ctx.scale(p,p);ctx.fillStyle='#f2b632';ctx.strokeStyle='#8a5a0c';ctx.lineWidth=3;ctx.beginPath();ctx.moveTo(18,0);ctx.lineTo(-12,-14);ctx.lineTo(-6,0);ctx.lineTo(-12,14);ctx.closePath();ctx.fill();ctx.stroke();ctx.restore();}}
+  // title card
+  if(titleCard){const age=T-titleCard.t0;if(age>3.2)titleCard=null;else{const a=Math.min(1,age*2,(3.2-age)*2);ctx.fillStyle='rgba(15,25,35,'+(.55*a)+')';ctx.fillRect(0,VH/2-70,VW,140);ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillStyle='rgba(255,227,163,'+a+')';ctx.font='800 18px Nunito, sans-serif';ctx.fillText(titleCard.a.toUpperCase(),VW/2,VH/2-30);ctx.fillStyle='rgba(255,255,255,'+a+')';ctx.font='700 '+(VW<700?38:52)+'px Fredoka, sans-serif';ctx.fillText(titleCard.b,VW/2,VH/2+14);}}
+  if(fade>0){ctx.fillStyle='rgba(8,14,20,'+fade+')';ctx.fillRect(0,0,VW,VH);}
+}
+let last=performance.now();
+function loop(now){const dt=Math.min(.05,(now-last)/1000);last=now;update(dt);render();requestAnimationFrame(loop);}
+
+/* ---------------- input ---------------- */
+const KM={ArrowUp:'up',KeyW:'up',ArrowDown:'down',KeyS:'down',ArrowLeft:'left',KeyA:'left',ArrowRight:'right',KeyD:'right'};
+addEventListener('keydown',e=>{
+  if(e.target&&e.target.tagName==='INPUT'){if(e.key==='Enter')startGame(0);return;}
+  const d=KM[e.code];
+  if(dlg&&dlg.choice){if(d==='up'||d==='left'){dlg.move(-1);e.preventDefault();return;}if(d==='down'||d==='right'){dlg.move(1);e.preventDefault();return;}const n=parseInt(e.key,10);if(n>=1&&n<=dlg.n){dlg.pick(n-1);e.preventDefault();return;}}
+  if(d){if(mode==='play'){K[d]=true;e.preventDefault();}return;}
+  if(e.code==='Space'||e.code==='Enter'||e.code==='KeyE'||e.code==='KeyZ'){if(mode==='play'){e.preventDefault();action();}}
+  if(e.code==='KeyJ'&&mode==='play')openJournal();
+  if(e.code==='Escape'&&!$('#journal').hidden)closeJournal();
+});
+addEventListener('keyup',e=>{const d=KM[e.code];if(d)K[d]=false;if(e.code==='Space'&&mode==='play')e.preventDefault();});
+addEventListener('blur',()=>{for(const k in K)K[k]=false;});
+document.querySelectorAll('[data-dir]').forEach(b=>{const d=b.dataset.dir;const off=()=>{K[d]=false;};b.addEventListener('pointerdown',e=>{e.preventDefault();K[d]=true;try{b.setPointerCapture(e.pointerId);}catch(_){}});b.addEventListener('pointerup',off);b.addEventListener('pointercancel',off);b.addEventListener('lostpointercapture',off);b.addEventListener('contextmenu',e=>e.preventDefault());});
+$('#abtn').addEventListener('click',action);
+cv.addEventListener('pointerdown',e=>{if(mode!=='play')return;if(dlg){if(!dlg.choice)dlg.adv();return;}if(busy())return;const r=cv.getBoundingClientRect();const wx=(e.clientX-r.left)/r.width*VW+cam.x,wy=(e.clientY-r.top)/r.height*VH+cam.y;
+  let hit=null,hd=60;for(const o of interactables()){const d=Math.hypot(o.e.x-wx,(o.e.y-30)-wy);if(d<hd){hd=d;hit=o;}}
+  if(hit){if(dist(player,hit.e)<hit.r){run(hit.fn);return;}player.tap={x:hit.e.x,y:hit.e.y+24};player.tapTarget=hit.e;return;}
+  player.tap={x:wx,y:wy};player.tapTarget=null;});
+
+/* ---------------- journal ---------------- */
+function openJournal(){$('#vlist').innerHTML=verses.length?verses.map(v=>'<li>"'+esc(v.text)+'"<span>'+esc(v.ref)+'</span></li>').join(''):'<li>Talk with Jesus to fill your journal with His words.</li>';$('#journal').hidden=false;mode='journal';}
+function closeJournal(){$('#journal').hidden=true;mode='play';}
+$('#jbtn').onclick=openJournal;$('#jclose').onclick=closeJournal;
+
+/* ---------------- character maker ---------------- */
+const pv=$('#preview'),pvc=pv.getContext('2d');
+function swatches(id,arr,key){const box=$(id);box.innerHTML='';arr.forEach((col,i)=>{const b=document.createElement('button');b.type='button';b.className='sw'+(col?'':' none');if(col)b.style.background=col;b.setAttribute('aria-label',col?key+' '+(i+1):'No '+key);b.setAttribute('aria-pressed',pick[key]===i);b.onclick=()=>{pick[key]=i;swatches(id,arr,key);};box.appendChild(b);});}
+function chips(id,arr,key){const box=$(id);box.innerHTML='';arr.forEach((o,i)=>{const b=document.createElement('button');b.type='button';b.className='chip';b.textContent=o[1];b.setAttribute('aria-pressed',pick[key]===i);b.onclick=()=>{pick[key]=i;chips(id,arr,key);};box.appendChild(b);});}
+function buildMaker(){swatches('#skins',SKINS,'skin');swatches('#hairs',HAIRS,'hair');swatches('#robes',ROBES,'robe');swatches('#accs',ACCS,'acc');swatches('#cloaks',CLOAKS,'cloak');chips('#pats',PATS,'pat');chips('#hstyles',HSTYLES[pick.g],'hs');}
+buildMaker();
+document.querySelectorAll('#gender .seg').forEach(b=>b.onclick=()=>{pick.g=b.dataset.g;pick.hs=0;document.querySelectorAll('#gender .seg').forEach(x=>x.setAttribute('aria-pressed',x===b));$('#pname').placeholder=pick.g==='boy'?'Sam':'Mia';buildMaker();});
+function drawPreview(){if(mode==='title'){pvc.setTransform(2,0,0,2,0,0);pvc.clearRect(0,0,150,170);ell(pvc,75,150,40,8,'rgba(120,100,60,.25)');const dirs=['down','right','down','left'];drawPerson(pvc,75,150,Object.assign(playerLook(),{size:2}),{dir:dirs[Math.floor(T/1.6)%4],moving:true,t:T,bt:T,happy:true});}requestAnimationFrame(drawPreview);}
+function startGame(chapter){
+  player.name=($('#pname').value.trim()||(pick.g==='boy'?'Sam':'Mia')).slice(0,12);
+  $('#menu').hidden=true;$('#hud').hidden=false;mode='play';stars=0;verses.length=0;$('#stars').textContent='0';$('#vcount').textContent='0';
+  if(document.activeElement)document.activeElement.blur();
+  Music.start();VO.load('common');
+  loadLevel(chapter);
+}
+$('#menu').addEventListener('pointerdown',()=>{Music.start();if(mode==='title')Music.play('title');});
+$('#start').onclick=()=>startGame(0);
+[1,2,3,4,5].forEach(n=>{const b=document.createElement('button');b.type='button';b.className='chip';b.textContent=n;b.setAttribute('aria-label','Start at chapter '+n);b.onclick=()=>startGame(n-1);$('#chsel').appendChild(b);});
+function toMenu(){$('#end').hidden=true;$('#hud').hidden=true;mode='title';Music.play('title');$('#menu').hidden=false;loadLevel(0);}
+$('#toMenu').onclick=toMenu;
+$('#again').onclick=()=>{if(level>=CH.length-1){toMenu();return;}$('#end').hidden=true;$('#hud').hidden=false;mode='play';loadLevel(level+1);};
+
+window.__twj={get missing(){return [...VO.missing];},get level(){return level;},get player(){return player;},get goal(){return goalTarget;},get items(){return items;},get npcs(){return npcs;},get groups(){return groups;},get mode(){return mode;},get busy(){return busy();},get stars(){return stars;},action,tp(x,y){player.x=x;player.y=y;}};
+CH=[
+ {t:'Come, Follow Me',build:buildL1,done:'You met Jesus, helped Tobiah, and followed Jesus along the shore.'},
+ {t:'Five Loaves and Two Fish',build:buildL2,done:'You trusted Jesus, helped Tobiah, asked kindly, and served bread to thousands.'},
+ {t:'The Storm on the Lake',build:buildL3,done:'You went to Jesus for help in the storm, and saw the wind and the waves obey Him.'},
+ {t:'Zacchaeus Comes Down',build:buildL4,done:'You were kind to Zacchaeus when others pushed him away, and helped him make things right.'},
+ {t:'He Is Risen!',build:buildL5,done:'You found the empty tomb, met the risen Jesus, and shared the good news!'}];
+buildL1();player.look=playerLook();snapCam();
+requestAnimationFrame(loop);requestAnimationFrame(drawPreview);
+})();
+</script>
+
+</body>
+</html>
